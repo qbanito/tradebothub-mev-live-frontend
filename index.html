@@ -1,10 +1,1173 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#06100c"><title>TradeBotHub MEV OS v3</title><style>
-:root{--bg:#06100c;--panel:#0b1712;--panel2:#101f18;--line:#20342a;--text:#edf7f0;--muted:#8ea99a;--green:#42f59e;--red:#ff6b78;--yellow:#ffd369}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 70% 0,#163629 0,#06100c 35%);color:var(--text);font:14px Inter,system-ui,sans-serif}.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}aside{padding:24px 16px;border-right:1px solid var(--line);background:#07120e;position:sticky;top:0;height:100vh}.brand{font-weight:900;font-size:18px;margin-bottom:30px}.brand span{display:block;color:var(--green);font-size:10px;letter-spacing:2px}.nav button{width:100%;background:none;border:0;color:var(--muted);padding:13px;border-radius:9px;text-align:left;cursor:pointer;margin:2px 0}.nav button.active,.nav button:hover{background:#14261d;color:white}.status{position:absolute;bottom:20px;left:16px;right:16px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#0b1712}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--yellow);margin-right:7px}.dot.live{background:var(--green);box-shadow:0 0 12px var(--green)}main{padding:24px;min-width:0}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}.top h1{margin:3px 0;font-size:27px}.eyebrow{color:var(--green);font-size:10px;letter-spacing:2px}.btn{border:1px solid var(--line);background:#102219;color:white;padding:10px 14px;border-radius:9px;cursor:pointer}.btn.primary{background:var(--green);color:#052014;border-color:var(--green);font-weight:800}.metrics{display:grid;grid-template-columns:repeat(6,minmax(130px,1fr));gap:12px}.metric,.panel{background:linear-gradient(180deg,#0e1c16,#09140f);border:1px solid var(--line);border-radius:14px}.metric{padding:15px}.metric small{color:var(--muted)}.metric b{display:block;font-size:23px;margin-top:8px}.grid{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;margin-top:14px}.panel{padding:16px;overflow:hidden}.panel h3{margin:3px 0 14px}.table{overflow:auto}table{width:100%;border-collapse:collapse;white-space:nowrap}th,td{text-align:left;padding:12px;border-bottom:1px solid #16271f}th{color:var(--muted);font-size:11px}td.green{color:var(--green)}td.red{color:var(--red)}.pill{padding:5px 8px;border-radius:12px;background:#193127;color:var(--green);font-size:11px}.view{display:none}.view.active{display:block}.bars .bar{margin:12px 0}.barline{height:7px;background:#172820;border-radius:8px;overflow:hidden;margin-top:6px}.barline i{display:block;height:100%;background:linear-gradient(90deg,#1ddf83,#75ffc0)}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.card{border:1px solid var(--line);padding:14px;border-radius:12px;background:#0b1712}.muted{color:var(--muted)}input,select{background:#09140f;border:1px solid var(--line);color:white;border-radius:8px;padding:10px}.filters{display:flex;gap:8px;margin-bottom:12px}.warning{padding:12px;border:1px solid #604e1a;background:#241f0d;border-radius:10px;color:#ffe497;margin-bottom:14px}@media(max-width:1100px){.metrics{grid-template-columns:repeat(3,1fr)}.grid{grid-template-columns:1fr}.cards{grid-template-columns:1fr 1fr}}@media(max-width:760px){.app{grid-template-columns:1fr}aside{position:relative;height:auto;border-right:0}.nav{display:flex;overflow:auto}.nav button{min-width:150px}.status{display:none}main{padding:14px}.metrics{grid-template-columns:1fr 1fr}.cards{grid-template-columns:1fr}.top{align-items:flex-start;gap:10px}.top h1{font-size:21px}}
-</style></head><body><div class="app"><aside><div class="brand">TRADEBOTHUB <span>MEV INTELLIGENCE OS v3</span></div><div class="nav" id="nav"><button class="active" data-v="overview">Overview</button><button data-v="opportunities">Opportunities</button><button data-v="transactions">Transactions</button><button data-v="arbitrages">Arbitrages</button><button data-v="searchers">Searchers</button><button data-v="execution">Paper Execution</button></div><div class="status"><span id="dot" class="dot"></span><b id="conn">Connecting</b><div class="muted" id="mode">API</div></div></aside><main><div class="top"><div><span class="eyebrow">SOLANA LIVE INTELLIGENCE</span><h1 id="title">Command Center</h1></div><div><button class="btn" id="refresh">Refresh</button> <button class="btn primary">Paper Mode</button></div></div><section class="view active" id="overview"><div class="metrics" id="metrics"></div><div class="grid"><div class="panel"><span class="eyebrow">LIVE OPPORTUNITIES</span><h3>Cross-DEX scanner</h3><div class="table"><table><thead><tr><th>Asset</th><th>Route</th><th>Spread</th><th>Capital</th><th>Est. Net</th><th>Status</th></tr></thead><tbody id="oppMini"></tbody></table></div></div><div class="panel"><span class="eyebrow">DEX FLOW</span><h3>Liquidity monitored</h3><div class="bars" id="dexBars"></div></div></div></section><section class="view" id="opportunities"><div class="filters"><input id="q" placeholder="Buscar activo o DEX"><button class="btn" id="scan">Run scan</button></div><div class="panel"><div class="table"><table><thead><tr><th>Detected</th><th>Asset</th><th>Buy</th><th>Sell</th><th>Spread</th><th>Gross</th><th>Costs</th><th>Net</th><th>Score</th></tr></thead><tbody id="oppRows"></tbody></table></div></div></section><section class="view" id="transactions"><div class="warning">Las transacciones aparecen cuando Helius y los Program IDs de DEX están configurados en Render.</div><div class="panel"><div class="table"><table><thead><tr><th>Slot</th><th>Signature</th><th>Fee payer</th><th>Programs</th><th>Fee</th><th>Status</th></tr></thead><tbody id="txRows"></tbody></table></div></div></section><section class="view" id="arbitrages"><div class="warning">“Candidate” significa transacción multi-DEX detectada. No se etiqueta como beneficio realizado sin decodificación y valoración exacta.</div><div class="panel"><div class="table"><table><thead><tr><th>Slot</th><th>Signature</th><th>Searcher</th><th>DEX programs</th><th>Type</th><th>Confidence</th><th>Realized PnL</th></tr></thead><tbody id="arbRows"></tbody></table></div></div></section><section class="view" id="searchers"><div class="cards" id="searchCards"></div></section><section class="view" id="execution"><div class="warning"><b>Paper mode only.</b> Esta versión no guarda claves privadas ni envía transacciones.</div><div class="grid"><div class="panel"><h3>Simulate route</h3><p><input id="capital" type="number" value="10000"> <input id="spread" type="number" value="25"> <input id="minp" type="number" value="5"></p><button class="btn primary" id="simulate">Simulate</button><div id="simResult" style="margin-top:16px"></div></div><div class="panel"><h3>Risk guardrails</h3><div class="cards"><div class="card"><b>No private keys</b><p class="muted">Frontend and public API never receive signer secrets.</p></div><div class="card"><b>Realized ≠ estimated</b><p class="muted">The UI keeps both values separate.</p></div><div class="card"><b>Live disabled</b><p class="muted">Execution mode remains paper.</p></div></div></div></div></section></main></div><script src="config.js"></script><script>
-const API=(window.TRADEBOTHUB_CONFIG?.API_BASE_URL||'').replace(/\/$/,'');let state={stats:{},opps:[],market:[],txs:[],arbs:[],searchers:[]};const $=s=>document.querySelector(s),money=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:2}).format(Number(n||0)),short=s=>s?`${s.slice(0,6)}…${s.slice(-5)}`:'—';
-async function j(path,opt){const r=await fetch(API+path,opt);if(!r.ok)throw new Error(`${r.status}`);return r.json()}async function load(){try{const [stats,opps,market,txs,arbs,searchers]=await Promise.all([j('/api/stats'),j('/api/opportunities?limit=150'),j('/api/market?limit=250'),j('/api/transactions?limit=100'),j('/api/arbitrages?limit=100'),j('/api/searchers?limit=100')]);state={stats,opps:opps.items,market:market.items,txs:txs.items,arbs:arbs.items,searchers:searchers.items};render();$('#dot').className='dot live';$('#conn').textContent='Streaming';$('#mode').textContent=`${stats.mode} · ${stats.indexer}`}catch(e){$('#conn').textContent='API offline';$('#mode').textContent=String(e)}}
-function render(){const s=state.stats;$('#metrics').innerHTML=[['Markets',s.marketCount],['Opportunities',s.opportunityCount],['Indexed TX',s.transactionCount],['Arbitrages',s.arbitrageCount],['Est. Net',money(s.estimatedNetUsd)],['Realized',money(s.realizedNetUsd)]].map(x=>`<div class="metric"><small>${x[0]}</small><b>${x[1]??0}</b></div>`).join('');const rows=state.opps.slice(0,12);$('#oppMini').innerHTML=rows.map(o=>`<tr><td>${o.symbol}</td><td>${o.buyDex} → ${o.sellDex}</td><td>${o.spreadBps} bps</td><td>${money(o.capital)}</td><td class="${o.net>=0?'green':'red'}">${money(o.net)}</td><td><span class="pill">${o.status}</span></td></tr>`).join('')||'<tr><td colspan=6>No opportunities above threshold</td></tr>';renderOpps();const dex={};state.market.forEach(x=>dex[x.dex]=(dex[x.dex]||0)+x.liquidity);const max=Math.max(1,...Object.values(dex));$('#dexBars').innerHTML=Object.entries(dex).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([k,v])=>`<div class="bar"><span>${k} <b style="float:right">${money(v)}</b></span><div class="barline"><i style="width:${v/max*100}%"></i></div></div>`).join('');$('#txRows').innerHTML=state.txs.map(t=>`<tr><td>${t.slot??'—'}</td><td>${short(t.signature)}</td><td>${short(t.feePayer)}</td><td>${t.programIds?.length||0}</td><td>${(t.feeLamports||0)/1e9} SOL</td><td>${t.success?'success':'failed'}</td></tr>`).join('')||'<tr><td colspan=6>Configure Helius to stream transactions.</td></tr>';$('#arbRows').innerHTML=state.arbs.map(a=>`<tr><td>${a.slot??'—'}</td><td>${short(a.signature)}</td><td>${short(a.searcher)}</td><td>${a.dexProgramCount}</td><td>${a.type}</td><td>${a.confidence}%</td><td>${a.realizedNetUsd==null?'Unverified':money(a.realizedNetUsd)}</td></tr>`).join('')||'<tr><td colspan=7>No candidates indexed.</td></tr>';$('#searchCards').innerHTML=state.searchers.map(s=>`<div class="card"><span class="eyebrow">SEARCHER</span><h3>${short(s.wallet)}</h3><p>Candidates: <b>${s.candidates}</b></p><p>Transactions: <b>${s.transactions}</b></p><p class="muted">Last seen ${s.lastSeen||'—'}</p></div>`).join('')||'<div class="card">No searchers indexed yet.</div>'}
-function renderOpps(){const q=($('#q')?.value||'').toLowerCase();$('#oppRows').innerHTML=state.opps.filter(o=>JSON.stringify(o).toLowerCase().includes(q)).map(o=>`<tr><td>${new Date(o.detectedAt).toLocaleTimeString()}</td><td>${o.symbol}</td><td>${o.buyDex}</td><td>${o.sellDex}</td><td>${o.spreadBps} bps</td><td>${money(o.gross)}</td><td>${money(o.costs)}</td><td class="${o.net>=0?'green':'red'}">${money(o.net)}</td><td>${o.score}</td></tr>`).join('')}
-$('#nav').onclick=e=>{const b=e.target.closest('button');if(!b)return;document.querySelectorAll('.nav button,.view').forEach(x=>x.classList.remove('active'));b.classList.add('active');$('#'+b.dataset.v).classList.add('active');$('#title').textContent=b.textContent};$('#refresh').onclick=load;$('#q').oninput=renderOpps;$('#scan').onclick=()=>j('/api/admin/scan',{method:'POST'}).then(load);$('#simulate').onclick=async()=>{const r=await j('/api/simulate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({capital:+$('#capital').value,spreadBps:+$('#spread').value,minProfit:+$('#minp').value})});$('#simResult').innerHTML=`<div class="card"><b>${r.status.toUpperCase()}</b><p>Gross ${money(r.gross)} · Costs ${money(r.costs)} · Net <span class="${r.net>=0?'green':'red'}">${money(r.net)}</span></p><small class="muted">${r.warning}</small></div>`};
-load();setInterval(load,15000);if(API){const es=new EventSource(API+'/api/stream');es.addEventListener('snapshot',e=>{state.stats=JSON.parse(e.data);render()});es.onerror=()=>{$('#dot').className='dot'}}
-</script></body></html>
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a131b">
+  <title>TradeBotHub MEV OS v3.1</title>
+  <style>
+    :root {
+      --bg: #081018;
+      --bg-2: #0d1720;
+      --panel: rgba(14, 26, 37, 0.92);
+      --panel-2: rgba(11, 21, 31, 0.9);
+      --line: #21384b;
+      --text: #edf5fb;
+      --muted: #8fa5b8;
+      --green: #53f0a3;
+      --green-2: #1fa36c;
+      --red: #ff6f7e;
+      --yellow: #ffcf6b;
+      --blue: #63c8ff;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+      --radius: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(83, 240, 163, 0.12), transparent 28%),
+        radial-gradient(circle at top right, rgba(99, 200, 255, 0.14), transparent 24%),
+        linear-gradient(180deg, #09121a, #061018 65%, #040b11);
+      font: 14px/1.45 "IBM Plex Sans", "Segoe UI", sans-serif;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      min-height: 100vh;
+    }
+
+    aside {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 24px 18px;
+      border-right: 1px solid rgba(255, 255, 255, 0.04);
+      background: linear-gradient(180deg, rgba(7, 15, 22, 0.98), rgba(7, 13, 19, 0.92));
+      backdrop-filter: blur(20px);
+    }
+
+    .brand {
+      margin-bottom: 28px;
+      font: 700 21px/1.1 "IBM Plex Mono", monospace;
+      letter-spacing: 0.04em;
+    }
+
+    .brand small {
+      display: block;
+      margin-top: 8px;
+      color: var(--green);
+      font-size: 11px;
+      letter-spacing: 0.2em;
+    }
+
+    .nav {
+      display: grid;
+      gap: 6px;
+    }
+
+    .nav button {
+      padding: 12px 14px;
+      color: var(--muted);
+      border: 1px solid transparent;
+      border-radius: 12px;
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+      transition: 140ms ease;
+      font: inherit;
+    }
+
+    .nav button.active,
+    .nav button:hover {
+      color: var(--text);
+      background: rgba(99, 200, 255, 0.08);
+      border-color: rgba(99, 200, 255, 0.18);
+    }
+
+    .sidebar-card {
+      margin-top: 22px;
+      padding: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.03);
+      box-shadow: var(--shadow);
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      margin-right: 8px;
+      background: var(--yellow);
+      box-shadow: 0 0 12px rgba(255, 207, 107, 0.35);
+    }
+
+    .status-dot.live {
+      background: var(--green);
+      box-shadow: 0 0 14px rgba(83, 240, 163, 0.45);
+    }
+
+    .status-dot.offline {
+      background: var(--red);
+      box-shadow: 0 0 12px rgba(255, 111, 126, 0.35);
+    }
+
+    main {
+      padding: 28px;
+      min-width: 0;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 20px;
+    }
+
+    .eyebrow {
+      color: var(--blue);
+      font: 700 11px/1 "IBM Plex Mono", monospace;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 6px 0 0;
+      font-size: 30px;
+      line-height: 1.05;
+    }
+
+    .top-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn,
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    .btn {
+      padding: 11px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.04);
+      cursor: pointer;
+      transition: 140ms ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255, 255, 255, 0.14);
+    }
+
+    .btn.primary {
+      color: #03140d;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--green), #8bf8c4);
+      border-color: transparent;
+    }
+
+    .btn.warn {
+      color: #201100;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--yellow), #ffe9af);
+      border-color: transparent;
+    }
+
+    .btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+      transform: none;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(120px, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .metric,
+    .panel,
+    .card {
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(17, 29, 41, 0.95), rgba(9, 18, 26, 0.9));
+      box-shadow: var(--shadow);
+    }
+
+    .metric {
+      padding: 15px;
+    }
+
+    .metric small,
+    .muted,
+    th,
+    .subtle {
+      color: var(--muted);
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 9px;
+      font-size: 24px;
+    }
+
+    .layout {
+      display: grid;
+      gap: 14px;
+    }
+
+    .two-col {
+      grid-template-columns: 1.5fr 1fr;
+    }
+
+    .panel {
+      padding: 18px;
+      overflow: hidden;
+    }
+
+    .panel h2,
+    .panel h3,
+    .card h3 {
+      margin: 6px 0 12px;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .card {
+      padding: 15px;
+    }
+
+    .table-wrap {
+      overflow: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      white-space: nowrap;
+    }
+
+    th,
+    td {
+      padding: 12px 10px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    th {
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    td.positive {
+      color: var(--green);
+    }
+
+    td.negative {
+      color: var(--red);
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: rgba(83, 240, 163, 0.12);
+      color: var(--green);
+      font-size: 12px;
+    }
+
+    .pill.warn {
+      background: rgba(255, 207, 107, 0.14);
+      color: var(--yellow);
+    }
+
+    .pill.off {
+      background: rgba(255, 111, 126, 0.14);
+      color: var(--red);
+    }
+
+    .notice {
+      margin-bottom: 14px;
+      padding: 13px 14px;
+      border: 1px solid rgba(255, 207, 107, 0.25);
+      border-radius: 14px;
+      color: #ffe7b1;
+      background: rgba(84, 61, 14, 0.25);
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    label {
+      display: grid;
+      gap: 7px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      padding: 11px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.04);
+      outline: none;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    .view {
+      display: none;
+    }
+
+    .view.active {
+      display: block;
+    }
+
+    .stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .mono {
+      font-family: "IBM Plex Mono", monospace;
+    }
+
+    .bar {
+      margin-bottom: 12px;
+    }
+
+    .bar-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .bar-track {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #2096ff, #53f0a3);
+      border-radius: inherit;
+    }
+
+    @media (max-width: 1200px) {
+      .metrics {
+        grid-template-columns: repeat(3, minmax(120px, 1fr));
+      }
+
+      .two-col,
+      .cards {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 840px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      aside {
+        position: static;
+        height: auto;
+        border-right: 0;
+      }
+
+      .nav {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      main {
+        padding: 18px;
+      }
+
+      .metrics,
+      .field-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .nav,
+      .metrics,
+      .field-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside>
+      <div class="brand">
+        TRADEBOTHUB
+        <small>MEV OS v3.1</small>
+      </div>
+
+      <div class="nav" id="nav">
+        <button class="active" data-view="overview">Overview</button>
+        <button data-view="opportunities">Opportunities</button>
+        <button data-view="transactions">Transactions</button>
+        <button data-view="arbitrages">Arbitrages</button>
+        <button data-view="searchers">Searchers</button>
+        <button data-view="execution">Execution</button>
+      </div>
+
+      <div class="sidebar-card">
+        <div><span class="status-dot" id="statusDot"></span><strong id="statusLabel">Connecting</strong></div>
+        <div class="muted" id="statusMeta">API</div>
+      </div>
+
+      <div class="sidebar-card">
+        <div class="eyebrow">Readiness</div>
+        <h3 id="sideMode">Paper mode</h3>
+        <div class="muted" id="sideReadiness">Waiting for backend status...</div>
+      </div>
+    </aside>
+
+    <main>
+      <div class="topbar">
+        <div>
+          <div class="eyebrow">Solana market intelligence and guarded execution</div>
+          <h1 id="title">Command Center</h1>
+        </div>
+
+        <div class="top-actions">
+          <button class="btn" id="refreshBtn">Refresh</button>
+          <button class="btn warn" id="modeBadge" disabled>Paper only</button>
+        </div>
+      </div>
+
+      <section class="view active" id="overview">
+        <div class="metrics" id="metrics"></div>
+
+        <div class="layout two-col">
+          <div class="panel">
+            <div class="eyebrow">Live opportunities</div>
+            <h2>Cross-DEX scanner</h2>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Asset</th>
+                    <th>Route</th>
+                    <th>Spread</th>
+                    <th>Capital</th>
+                    <th>Est. Net</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="overviewOpps"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="eyebrow">Execution readiness</div>
+            <h2>Signer and broadcast state</h2>
+            <div class="stack" id="readinessCards"></div>
+          </div>
+        </div>
+
+        <div class="layout two-col" style="margin-top:14px;">
+          <div class="panel">
+            <div class="eyebrow">Liquidity watch</div>
+            <h2>Tracked DEX depth</h2>
+            <div id="dexBars"></div>
+          </div>
+
+          <div class="panel">
+            <div class="eyebrow">Recent executions</div>
+            <h2>Last broadcast swaps</h2>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>When</th>
+                    <th>Pair</th>
+                    <th>Status</th>
+                    <th>Signature</th>
+                  </tr>
+                </thead>
+                <tbody id="overviewExecs"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="opportunities">
+        <div class="panel">
+          <div class="actions" style="margin-top:0; margin-bottom:14px;">
+            <input id="oppSearch" placeholder="Buscar activo o DEX">
+            <button class="btn" id="scanBtn">Run scan</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Detected</th>
+                  <th>Asset</th>
+                  <th>Buy</th>
+                  <th>Sell</th>
+                  <th>Spread</th>
+                  <th>Gross</th>
+                  <th>Costs</th>
+                  <th>Net</th>
+                  <th>Score</th>
+                </tr>
+              </thead>
+              <tbody id="oppRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="transactions">
+        <div class="notice">
+          Las transacciones listadas pueden venir de ejecuciones manuales desde esta consola o de ingest manual futura. No implican PnL validado.
+        </div>
+        <div class="panel">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Slot</th>
+                  <th>Signature</th>
+                  <th>Fee payer</th>
+                  <th>Programs</th>
+                  <th>Fee</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="txRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="arbitrages">
+        <div class="notice">
+          "Candidate" significa actividad multi-route detectada o inferida. No se marca como beneficio realizado sin decodificacion y valoracion exacta.
+        </div>
+        <div class="panel">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Slot</th>
+                  <th>Signature</th>
+                  <th>Searcher</th>
+                  <th>Programs</th>
+                  <th>Type</th>
+                  <th>Confidence</th>
+                  <th>Realized</th>
+                </tr>
+              </thead>
+              <tbody id="arbRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="searchers">
+        <div class="cards" id="searchCards"></div>
+      </section>
+
+      <section class="view" id="execution">
+        <div class="notice" id="executionBanner">
+          El backend ahora soporta cotizacion y envio, pero live sigue bloqueado hasta que Render tenga el signer y los flags correctos.
+        </div>
+
+        <div class="layout two-col">
+          <div class="panel">
+            <div class="eyebrow">Live swap workflow</div>
+            <h2>Quote and execute</h2>
+
+            <div class="field-grid">
+              <label>
+                Input token
+                <select id="inputToken"></select>
+              </label>
+              <label>
+                Output token
+                <select id="outputToken"></select>
+              </label>
+              <label>
+                Amount
+                <input id="tradeAmount" type="number" min="0" step="any" value="0.1">
+              </label>
+              <label>
+                Slippage bps
+                <input id="slippageBps" type="number" min="1" step="1" value="50">
+              </label>
+            </div>
+
+            <div class="actions">
+              <button class="btn" id="quoteBtn">Get live quote</button>
+              <button class="btn primary" id="executeBtn">Execute live swap</button>
+            </div>
+
+            <div class="stack" id="quoteResult" style="margin-top:16px;"></div>
+          </div>
+
+          <div class="panel">
+            <div class="eyebrow">Backend readiness</div>
+            <h2>Execution status</h2>
+            <div class="stack" id="executionStatus"></div>
+          </div>
+        </div>
+
+        <div class="layout two-col" style="margin-top:14px;">
+          <div class="panel">
+            <div class="eyebrow">Paper simulation</div>
+            <h2>Guardrail math</h2>
+            <div class="field-grid">
+              <label>
+                Capital USD
+                <input id="simCapital" type="number" min="0" step="1" value="10000">
+              </label>
+              <label>
+                Spread bps
+                <input id="simSpread" type="number" min="0" step="1" value="25">
+              </label>
+              <label>
+                Min profit USD
+                <input id="simProfit" type="number" min="0" step="1" value="5">
+              </label>
+            </div>
+            <div class="actions">
+              <button class="btn" id="simulateBtn">Simulate route</button>
+            </div>
+            <div class="stack" id="simResult" style="margin-top:16px;"></div>
+          </div>
+
+          <div class="panel">
+            <div class="eyebrow">Execution log</div>
+            <h2>Recent live attempts</h2>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>When</th>
+                    <th>Pair</th>
+                    <th>Status</th>
+                    <th>Broadcast</th>
+                    <th>Signature</th>
+                  </tr>
+                </thead>
+                <tbody id="executionRows"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="config.js"></script>
+  <script>
+    const API = (window.TRADEBOTHUB_CONFIG?.API_BASE_URL || "").replace(/\/$/, "");
+    const state = {
+      stats: {},
+      opportunities: [],
+      market: [],
+      transactions: [],
+      arbitrages: [],
+      searchers: [],
+      executionStatus: null,
+      executions: [],
+      tokens: [],
+      lastQuote: null
+    };
+
+    const $ = (selector) => document.querySelector(selector);
+    const money = (value) => new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 2
+    }).format(Number(value || 0));
+    const short = (value) => value ? value.slice(0, 6) + "..." + value.slice(-5) : "-";
+    const time = (value) => value ? new Date(value).toLocaleTimeString() : "-";
+
+    async function api(path, options) {
+      const response = await fetch(API + path, options);
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || String(response.status));
+      }
+      return payload;
+    }
+
+    function renderMetrics() {
+      const items = [
+        ["Markets", state.stats.marketCount || 0],
+        ["Opportunities", state.stats.opportunityCount || 0],
+        ["Indexed TX", state.stats.transactionCount || 0],
+        ["Arbitrages", state.stats.arbitrageCount || 0],
+        ["Est. Net", money(state.stats.estimatedNetUsd || 0)],
+        ["Realized", money(state.stats.realizedNetUsd || 0)]
+      ];
+      $("#metrics").innerHTML = items.map(([label, value]) => `
+        <div class="metric">
+          <small>${label}</small>
+          <strong>${value}</strong>
+        </div>
+      `).join("");
+    }
+
+    function renderOverviewOpps() {
+      const rows = state.opportunities.slice(0, 10);
+      $("#overviewOpps").innerHTML = rows.length ? rows.map((item) => `
+        <tr>
+          <td>${item.symbol}</td>
+          <td>${item.buyDex} -> ${item.sellDex}</td>
+          <td>${item.spreadBps} bps</td>
+          <td>${money(item.capital)}</td>
+          <td class="${item.net >= 0 ? "positive" : "negative"}">${money(item.net)}</td>
+          <td><span class="pill ${item.status === "watch" ? "warn" : ""}">${item.status}</span></td>
+        </tr>
+      `).join("") : `<tr><td colspan="6">No opportunities above threshold.</td></tr>`;
+    }
+
+    function renderDexBars() {
+      const dexTotals = {};
+      state.market.forEach((item) => {
+        dexTotals[item.dex] = (dexTotals[item.dex] || 0) + Number(item.liquidity || 0);
+      });
+      const entries = Object.entries(dexTotals).sort((a, b) => b[1] - a[1]).slice(0, 8);
+      const max = Math.max(1, ...entries.map((entry) => entry[1]));
+      $("#dexBars").innerHTML = entries.length ? entries.map(([name, value]) => `
+        <div class="bar">
+          <div class="bar-head">
+            <span>${name}</span>
+            <strong>${money(value)}</strong>
+          </div>
+          <div class="bar-track"><div class="bar-fill" style="width:${(value / max) * 100}%"></div></div>
+        </div>
+      `).join("") : `<div class="muted">No liquidity rows loaded yet.</div>`;
+    }
+
+    function renderReadinessCards() {
+      const status = state.executionStatus;
+      if (!status) {
+        $("#readinessCards").innerHTML = `<div class="card">Waiting for execution status...</div>`;
+        return;
+      }
+
+      const reasons = status.reasons?.length
+        ? status.reasons.map((reason) => `<div class="pill off">${reason}</div>`).join("")
+        : `<div class="pill">All checks passed</div>`;
+
+      $("#readinessCards").innerHTML = `
+        <div class="card">
+          <div class="eyebrow">Mode</div>
+          <h3>${status.mode}</h3>
+          <div class="muted">Broadcast: ${status.broadcastMode}</div>
+        </div>
+        <div class="card">
+          <div class="eyebrow">Signer</div>
+          <h3 class="mono">${status.signerPublicKey ? short(status.signerPublicKey) : "missing"}</h3>
+          <div class="muted">Balance: ${status.walletBalanceSol == null ? "-" : status.walletBalanceSol + " SOL"}</div>
+        </div>
+        <div class="card">
+          <div class="eyebrow">Live gate</div>
+          <h3>${status.canExecuteLive ? "ready" : "blocked"}</h3>
+          <div class="stack">${reasons}</div>
+        </div>
+      `;
+    }
+
+    function renderOverviewExecutions() {
+      const rows = state.executions.slice(0, 6);
+      $("#overviewExecs").innerHTML = rows.length ? rows.map((item) => `
+        <tr>
+          <td>${time(item.createdAt)}</td>
+          <td>${item.inputSymbol} -> ${item.outputSymbol}</td>
+          <td><span class="pill ${item.status === "confirmed" ? "" : "warn"}">${item.status}</span></td>
+          <td class="mono">${short(item.signature)}</td>
+        </tr>
+      `).join("") : `<tr><td colspan="4">No execution history yet.</td></tr>`;
+    }
+
+    function renderOpportunities() {
+      const q = ($("#oppSearch").value || "").toLowerCase();
+      const rows = state.opportunities.filter((item) => JSON.stringify(item).toLowerCase().includes(q));
+      $("#oppRows").innerHTML = rows.length ? rows.map((item) => `
+        <tr>
+          <td>${time(item.detectedAt)}</td>
+          <td>${item.symbol}</td>
+          <td>${item.buyDex}</td>
+          <td>${item.sellDex}</td>
+          <td>${item.spreadBps} bps</td>
+          <td>${money(item.gross)}</td>
+          <td>${money(item.costs)}</td>
+          <td class="${item.net >= 0 ? "positive" : "negative"}">${money(item.net)}</td>
+          <td>${item.score}</td>
+        </tr>
+      `).join("") : `<tr><td colspan="9">No matching opportunities.</td></tr>`;
+    }
+
+    function renderTransactions() {
+      $("#txRows").innerHTML = state.transactions.length ? state.transactions.map((item) => `
+        <tr>
+          <td>${item.slot ?? "-"}</td>
+          <td class="mono">${short(item.signature)}</td>
+          <td class="mono">${short(item.feePayer)}</td>
+          <td>${item.programIds?.length || 0}</td>
+          <td>${((item.feeLamports || 0) / 1e9).toFixed(6)} SOL</td>
+          <td>${item.success ? "success" : "failed"}</td>
+        </tr>
+      `).join("") : `<tr><td colspan="6">No transactions available.</td></tr>`;
+    }
+
+    function renderArbitrages() {
+      $("#arbRows").innerHTML = state.arbitrages.length ? state.arbitrages.map((item) => `
+        <tr>
+          <td>${item.slot ?? "-"}</td>
+          <td class="mono">${short(item.signature)}</td>
+          <td class="mono">${short(item.searcher)}</td>
+          <td>${item.dexProgramCount}</td>
+          <td>${item.type}</td>
+          <td>${item.confidence}%</td>
+          <td>${item.realizedNetUsd == null ? "unverified" : money(item.realizedNetUsd)}</td>
+        </tr>
+      `).join("") : `<tr><td colspan="7">No arbitrage candidates indexed yet.</td></tr>`;
+    }
+
+    function renderSearchers() {
+      $("#searchCards").innerHTML = state.searchers.length ? state.searchers.map((item) => `
+        <div class="card">
+          <div class="eyebrow">Searcher</div>
+          <h3 class="mono">${short(item.wallet)}</h3>
+          <p>Candidates: <strong>${item.candidates}</strong></p>
+          <p>Transactions: <strong>${item.transactions}</strong></p>
+          <div class="muted">Last seen ${item.lastSeen || "-"}</div>
+        </div>
+      `).join("") : `<div class="card">No searchers indexed yet.</div>`;
+    }
+
+    function renderExecutionStatus() {
+      const status = state.executionStatus;
+      if (!status) {
+        $("#executionStatus").innerHTML = `<div class="card">Waiting for backend readiness...</div>`;
+        return;
+      }
+
+      $("#sideMode").textContent = status.mode === "live" ? "Live mode" : "Paper mode";
+      $("#sideReadiness").textContent = status.canExecuteLive
+        ? "Signer and flags are ready for live broadcast."
+        : "Live execution is still blocked by guardrails.";
+
+      $("#executionBanner").textContent = status.canExecuteLive
+        ? "Backend ready: the service reports that live broadcast is enabled. Review size and slippage before sending."
+        : "Live still blocked: configure signer keys and explicit flags in Render before executing transactions.";
+
+      $("#modeBadge").textContent = status.canExecuteLive ? "Live ready" : (status.mode === "live" ? "Live blocked" : "Paper only");
+      $("#modeBadge").className = status.canExecuteLive ? "btn primary" : "btn warn";
+
+      $("#executeBtn").disabled = !status.canExecuteLive;
+
+      const reasons = status.reasons?.length
+        ? status.reasons.map((reason) => `<div class="pill off">${reason}</div>`).join("")
+        : `<div class="pill">All checks passed</div>`;
+
+      $("#executionStatus").innerHTML = `
+        <div class="card">
+          <div class="eyebrow">Signer</div>
+          <h3 class="mono">${status.signerPublicKey || "not configured"}</h3>
+          <div class="muted">Balance: ${status.walletBalanceSol == null ? "-" : status.walletBalanceSol + " SOL"}</div>
+        </div>
+        <div class="card">
+          <div class="eyebrow">Broadcast</div>
+          <h3>${status.broadcastMode}</h3>
+          <div class="muted">RPC: ${status.rpcUrl}</div>
+        </div>
+        <div class="card">
+          <div class="eyebrow">Limits</div>
+          <h3>${money(status.defaults.maxExecutionUsd)}</h3>
+          <div class="muted">Slippage default ${status.defaults.slippageBps} bps</div>
+        </div>
+        <div class="card">
+          <div class="eyebrow">Blockers</div>
+          <div class="stack">${reasons}</div>
+        </div>
+      `;
+    }
+
+    function renderExecutions() {
+      $("#executionRows").innerHTML = state.executions.length ? state.executions.map((item) => `
+        <tr>
+          <td>${time(item.createdAt)}</td>
+          <td>${item.inputSymbol} -> ${item.outputSymbol}</td>
+          <td><span class="pill ${item.status === "confirmed" ? "" : "warn"}">${item.status}</span></td>
+          <td>${item.broadcastMode}</td>
+          <td class="mono">${short(item.signature)}</td>
+        </tr>
+      `).join("") : `<tr><td colspan="5">No execution attempts recorded.</td></tr>`;
+    }
+
+    function populateTokenSelects() {
+      const currentInput = $("#inputToken").value;
+      const currentOutput = $("#outputToken").value;
+      const tokens = state.tokens.length ? state.tokens : [
+        { symbol: "SOL", mint: "So11111111111111111111111111111111111111112" },
+        { symbol: "USDC", mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" }
+      ];
+      const options = tokens.map((token) => `<option value="${token.symbol}">${token.symbol} - ${token.name || token.mint}</option>`).join("");
+      $("#inputToken").innerHTML = options;
+      $("#outputToken").innerHTML = options;
+      const available = [...$("#inputToken").options].map((option) => option.value);
+      $("#inputToken").value = available.includes(currentInput) ? currentInput : (available.includes("SOL") ? "SOL" : available[0]);
+      $("#outputToken").value = available.includes(currentOutput) ? currentOutput : (available.includes("USDC") ? "USDC" : available[0]);
+    }
+
+    function renderQuote(payload, errorMessage) {
+      if (errorMessage) {
+        $("#quoteResult").innerHTML = `<div class="card"><strong>Quote failed</strong><div class="muted">${errorMessage}</div></div>`;
+        return;
+      }
+
+      const route = (payload.routePlan || []).map((item) => item.label).filter(Boolean).join(" -> ") || "direct";
+      $("#quoteResult").innerHTML = `
+        <div class="card">
+          <div class="eyebrow">Quote</div>
+          <h3>${payload.inputToken.symbol} -> ${payload.outputToken.symbol}</h3>
+          <p>In: <strong>${payload.amountIn}</strong></p>
+          <p>Quoted out: <strong>${payload.amountOutQuoted}</strong></p>
+          <p>Min out: <strong>${payload.amountOutMin}</strong></p>
+          <p>Swap USD value: <strong>${money(payload.swapUsdValue)}</strong></p>
+          <p>Price impact: <strong>${payload.priceImpactPct}%</strong></p>
+          <div class="muted">Route: ${route}</div>
+        </div>
+      `;
+    }
+
+    function renderSimulation(payload, errorMessage) {
+      if (errorMessage) {
+        $("#simResult").innerHTML = `<div class="card"><strong>Simulation failed</strong><div class="muted">${errorMessage}</div></div>`;
+        return;
+      }
+      $("#simResult").innerHTML = `
+        <div class="card">
+          <div class="eyebrow">Simulation</div>
+          <h3>${payload.status.toUpperCase()}</h3>
+          <p>Gross ${money(payload.gross)} | Costs ${money(payload.costs)} | Net <strong class="${payload.net >= 0 ? "positive" : "negative"}">${money(payload.net)}</strong></p>
+          <div class="muted">${payload.warning}</div>
+        </div>
+      `;
+    }
+
+    function renderAll() {
+      renderMetrics();
+      renderOverviewOpps();
+      renderDexBars();
+      renderReadinessCards();
+      renderOverviewExecutions();
+      renderOpportunities();
+      renderTransactions();
+      renderArbitrages();
+      renderSearchers();
+      renderExecutionStatus();
+      renderExecutions();
+      populateTokenSelects();
+    }
+
+    async function loadAll() {
+      try {
+        const [
+          stats,
+          opportunities,
+          market,
+          transactions,
+          arbitrages,
+          searchers,
+          executionStatus,
+          executions,
+          tokens
+        ] = await Promise.all([
+          api("/api/stats"),
+          api("/api/opportunities?limit=150"),
+          api("/api/market?limit=250"),
+          api("/api/transactions?limit=100"),
+          api("/api/arbitrages?limit=100"),
+          api("/api/searchers?limit=100"),
+          api("/api/execution/status"),
+          api("/api/executions?limit=100"),
+          api("/api/tokens")
+        ]);
+
+        state.stats = stats;
+        state.opportunities = opportunities.items || [];
+        state.market = market.items || [];
+        state.transactions = transactions.items || [];
+        state.arbitrages = arbitrages.items || [];
+        state.searchers = searchers.items || [];
+        state.executionStatus = executionStatus;
+        state.executions = executions.items || [];
+        state.tokens = tokens.items || [];
+
+        $("#statusDot").className = "status-dot live";
+        $("#statusLabel").textContent = "Connected";
+        $("#statusMeta").textContent = stats.mode + " | " + stats.indexer;
+
+        renderAll();
+      } catch (error) {
+        $("#statusDot").className = "status-dot offline";
+        $("#statusLabel").textContent = "API offline";
+        $("#statusMeta").textContent = String(error.message || error);
+      }
+    }
+
+    async function requestQuote() {
+      try {
+        const payload = await api("/api/execution/quote", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            inputToken: $("#inputToken").value,
+            outputToken: $("#outputToken").value,
+            amount: $("#tradeAmount").value,
+            slippageBps: $("#slippageBps").value
+          })
+        });
+        state.lastQuote = payload;
+        renderQuote(payload);
+      } catch (error) {
+        renderQuote(null, error.message || String(error));
+      }
+    }
+
+    async function executeTrade() {
+      const pair = $("#inputToken").value + " -> " + $("#outputToken").value;
+      if (!window.confirm("Execute live swap for " + pair + "?")) {
+        return;
+      }
+
+      try {
+        const payload = await api("/api/execution/execute", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            inputToken: $("#inputToken").value,
+            outputToken: $("#outputToken").value,
+            amount: $("#tradeAmount").value,
+            slippageBps: $("#slippageBps").value
+          })
+        });
+        $("#quoteResult").innerHTML = `
+          <div class="card">
+            <div class="eyebrow">Execution sent</div>
+            <h3>${payload.execution.inputSymbol} -> ${payload.execution.outputSymbol}</h3>
+            <p>Status: <strong>${payload.execution.status}</strong></p>
+            <p>Signature: <span class="mono">${payload.execution.signature}</span></p>
+          </div>
+        `;
+        await loadAll();
+      } catch (error) {
+        renderQuote(null, error.message || String(error));
+      }
+    }
+
+    async function runSimulation() {
+      try {
+        const payload = await api("/api/simulate", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            capital: Number($("#simCapital").value),
+            spreadBps: Number($("#simSpread").value),
+            minProfit: Number($("#simProfit").value)
+          })
+        });
+        renderSimulation(payload);
+      } catch (error) {
+        renderSimulation(null, error.message || String(error));
+      }
+    }
+
+    $("#nav").addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-view]");
+      if (!button) {
+        return;
+      }
+      document.querySelectorAll(".nav button").forEach((item) => item.classList.remove("active"));
+      document.querySelectorAll(".view").forEach((item) => item.classList.remove("active"));
+      button.classList.add("active");
+      $("#" + button.dataset.view).classList.add("active");
+      $("#title").textContent = button.textContent;
+    });
+
+    $("#refreshBtn").addEventListener("click", loadAll);
+    $("#scanBtn").addEventListener("click", async () => {
+      await api("/api/admin/scan", { method: "POST" });
+      await loadAll();
+    });
+    $("#oppSearch").addEventListener("input", renderOpportunities);
+    $("#quoteBtn").addEventListener("click", requestQuote);
+    $("#executeBtn").addEventListener("click", executeTrade);
+    $("#simulateBtn").addEventListener("click", runSimulation);
+
+    loadAll();
+    setInterval(loadAll, 15000);
+
+    if (API) {
+      const stream = new EventSource(API + "/api/stream");
+      stream.addEventListener("snapshot", () => {
+        loadAll();
+      });
+      stream.onerror = () => {
+        $("#statusDot").className = "status-dot";
+      };
+    }
+  </script>
+</body>
+</html>
