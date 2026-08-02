@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0a131b">
-  <title>TradeBotHub MEV OS v3.1</title>
+  <title>TradeBotHub MEV OS v3.3</title>
   <style>
     :root {
       --bg: #081018;
@@ -449,7 +449,7 @@
     <aside>
       <div class="brand">
         TRADEBOTHUB
-        <small>MEV OS v3.1</small>
+        <small>MEV OS v3.3</small>
       </div>
 
       <div class="nav" id="nav">
@@ -476,7 +476,7 @@
     <main>
       <div class="topbar">
         <div>
-          <div class="eyebrow">Solana market intelligence and guarded execution</div>
+          <div class="eyebrow">Multi-chain market intelligence and guarded execution</div>
           <h1 id="title">Command Center</h1>
         </div>
 
@@ -501,8 +501,10 @@
                     <th>Asset</th>
                     <th>Route</th>
                     <th>Spread</th>
+                    <th>Quality</th>
                     <th>Capital</th>
                     <th>Est. Net</th>
+                    <th>Validation</th>
                     <th>Status</th>
                   </tr>
                 </thead>
@@ -552,10 +554,11 @@
             <select id="oppChainFilter">
               <option value="all">All chains</option>
             </select>
+            <button class="btn" id="validateBtn">Validate top</button>
             <button class="btn" id="scanBtn">Run scan</button>
           </div>
           <div class="notice" style="margin-bottom:14px;">
-            Multi-chain scanning increases discovery coverage. Execution from this frontend still targets Solana wallet flow until other chain executors are added.
+            Multi-chain scanning now ranks opportunities by execution quality and can validate top Solana routes with live quotes. Validation means route feasibility, not guaranteed realized profit.
           </div>
           <div class="table-wrap">
             <table>
@@ -570,12 +573,16 @@
                   <th>Gross</th>
                   <th>Costs</th>
                   <th>Net</th>
-                  <th>Score</th>
+                  <th>Quality</th>
+                  <th>Execution</th>
+                  <th>Validation</th>
+                  <th>Strategy</th>
                 </tr>
               </thead>
               <tbody id="oppRows"></tbody>
             </table>
           </div>
+          <div class="cards" id="strategyCards" style="margin-top:14px;"></div>
         </div>
       </section>
 
@@ -739,6 +746,9 @@
       executions: [],
       clientExecutions: [],
       tokens: [],
+      capabilities: [],
+      strategies: [],
+      validations: {},
       lastQuote: null,
       builtSwap: null,
       walletPublicKey: null,
@@ -751,9 +761,53 @@
       currency: "USD",
       maximumFractionDigits: 2
     }).format(Number(value || 0));
+    const pct = (value) => `${Number(value || 0).toFixed(2)}%`;
     const short = (value) => value ? value.slice(0, 6) + "..." + value.slice(-5) : "-";
     const time = (value) => value ? new Date(value).toLocaleTimeString() : "-";
     const chainName = (item) => item?.chainName || item?.chainId || "Unknown";
+    const validationFor = (item) => state.validations[item.id] || null;
+    const executorFor = (chainId) => (state.capabilities || []).find((item) => item.chainId === chainId) || null;
+
+    function qualityPillClass(item) {
+      if (item.qualityTier === "A" || item.qualityTier === "B") {
+        return "";
+      }
+      return item.qualityTier === "C" ? "warn" : "off";
+    }
+
+    function validationPillClass(validation, item) {
+      if (!validation) {
+        return item.executionSupported ? "warn" : "off";
+      }
+      if (validation.status === "validated" || validation.status === "routable") {
+        return "";
+      }
+      if (validation.status === "prepared") {
+        return "warn";
+      }
+      return "off";
+    }
+
+    function validationLabel(validation, item) {
+      if (validation?.statusLabel) {
+        return validation.statusLabel;
+      }
+      return item.executionSupported ? "Pending quote" : "Discovery only";
+    }
+
+    function executionLabel(item) {
+      const executor = executorFor(item.chainId);
+      if (!executor) {
+        return item.executionSupported ? "active" : "unknown";
+      }
+      if (item.executionSupported && executor.status === "active") {
+        return "active";
+      }
+      if (executor.status === "prepared") {
+        return "prepared";
+      }
+      return executor.status || "discovery";
+    }
 
     async function api(path, options) {
       const response = await fetch(API + path, options);
@@ -813,8 +867,8 @@
         ["Opportunities", state.stats.opportunityCount || 0],
         ["Chains", state.stats.chainCount || 0],
         ["Scanner assets", state.stats.scannerAssetCount || 0],
-        ["Indexed TX", state.stats.transactionCount || 0],
-        ["Arbitrages", state.stats.arbitrageCount || 0],
+        ["A/B quality", state.stats.highQualityOpportunityCount || 0],
+        ["Ready routes", state.stats.readyOpportunityCount || 0],
         ["Est. Net", money(state.stats.estimatedNetUsd || 0)],
         ["Realized", money(state.stats.realizedNetUsd || 0)]
       ];
@@ -834,11 +888,13 @@
           <td>${item.symbol}</td>
           <td>${item.buyDex} -> ${item.sellDex}</td>
           <td>${item.spreadBps} bps</td>
+          <td><span class="pill ${qualityPillClass(item)}">${item.qualityTier} ${item.qualityScore}</span></td>
           <td>${money(item.capital)}</td>
           <td class="${item.net >= 0 ? "positive" : "negative"}">${money(item.net)}</td>
+          <td><span class="pill ${validationPillClass(validationFor(item), item)}">${validationLabel(validationFor(item), item)}</span></td>
           <td><span class="pill ${item.status === "watch" ? "warn" : ""}">${item.status}</span></td>
         </tr>
-      `).join("") : `<tr><td colspan="7">No opportunities above threshold.</td></tr>`;
+      `).join("") : `<tr><td colspan="9">No opportunities above threshold.</td></tr>`;
     }
 
     function renderDexBars() {
@@ -870,6 +926,8 @@
       const reasons = status.reasons?.length
         ? status.reasons.map((reason) => `<div class="pill off">${reason}</div>`).join("")
         : `<div class="pill">All checks passed</div>`;
+      const activeExecutors = (state.capabilities || []).filter((item) => item.status === "active").length;
+      const flashLoanTracks = (state.strategies || []).filter((item) => item.flashLoan).length;
 
       $("#readinessCards").innerHTML = `
         <div class="card">
@@ -878,14 +936,14 @@
           <div class="muted">${state.stats.marketCount || 0} markets across ${state.stats.chainCount || 0} chains</div>
         </div>
         <div class="card">
-          <div class="eyebrow">Wallet mode</div>
-          <h3>${status.walletExecutionSupported ? "supported" : "off"}</h3>
-          <div class="muted">${state.walletPublicKey ? short(state.walletPublicKey) : "connect your wallet in Execution"}</div>
+          <div class="eyebrow">Quality filter</div>
+          <h3>${state.stats.highQualityOpportunityCount || 0} A/B setups</h3>
+          <div class="muted">${state.stats.readyOpportunityCount || 0} routes already line up with the active executor</div>
         </div>
         <div class="card">
-          <div class="eyebrow">Execution chain</div>
-          <h3>${(status.executionChains || ["solana"]).join(", ")}</h3>
-          <div class="muted">Multi-chain scanner, Solana executor</div>
+          <div class="eyebrow">Execution mesh</div>
+          <h3>${activeExecutors} active / ${(state.capabilities || []).length || 0} tracked</h3>
+          <div class="muted">${flashLoanTracks} flash-loan strategy tracks mapped in roadmap</div>
         </div>
         <div class="card">
           <div class="eyebrow">Server signer</div>
@@ -910,6 +968,18 @@
       );
       $("#oppChainFilter").innerHTML = options.join("");
       $("#oppChainFilter").value = chains.includes(current) || current === "all" ? current : "all";
+    }
+
+    function renderStrategyCards() {
+      const strategies = (state.strategies || []).slice(0, 5);
+      $("#strategyCards").innerHTML = strategies.length ? strategies.map((item) => `
+        <div class="card">
+          <div class="eyebrow">${item.stage}</div>
+          <h3>${item.name}</h3>
+          <p>${item.chainNames.join(", ")}</p>
+          <div class="muted">${item.description}</div>
+        </div>
+      `).join("") : `<div class="card">No strategy metadata loaded.</div>`;
     }
 
     function allExecutions() {
@@ -949,9 +1019,12 @@
           <td>${money(item.gross)}</td>
           <td>${money(item.costs)}</td>
           <td class="${item.net >= 0 ? "positive" : "negative"}">${money(item.net)}</td>
-          <td>${item.score}</td>
+          <td><span class="pill ${qualityPillClass(item)}">${item.qualityTier} ${item.qualityScore}</span></td>
+          <td><span class="pill ${executionLabel(item) === "active" ? "" : executionLabel(item) === "prepared" ? "warn" : "off"}">${executionLabel(item)}</span></td>
+          <td><span class="pill ${validationPillClass(validationFor(item), item)}">${validationLabel(validationFor(item), item)}</span></td>
+          <td>${item.strategyLabel}</td>
         </tr>
-      `).join("") : `<tr><td colspan="10">No matching opportunities.</td></tr>`;
+      `).join("") : `<tr><td colspan="13">No matching opportunities.</td></tr>`;
     }
 
     function renderTransactions() {
@@ -1028,6 +1101,21 @@
       const reasons = status.reasons?.length
         ? status.reasons.map((reason) => `<div class="pill off">${reason}</div>`).join("")
         : `<div class="pill">All checks passed</div>`;
+      const executors = (state.capabilities || []).map((item) => `
+        <div class="card">
+          <div class="eyebrow">${item.chainName}</div>
+          <h3>${item.status}</h3>
+          <div class="muted">${item.notes}</div>
+          <div class="muted">Quotes ${item.quoteSupport ? "on" : "off"} | Build ${item.buildSupport ? "on" : "off"} | Flash loans ${item.flashLoanStage}</div>
+        </div>
+      `).join("");
+      const strategies = (state.strategies || []).slice(0, 4).map((item) => `
+        <div class="card">
+          <div class="eyebrow">Strategy ${item.stage}</div>
+          <h3>${item.name}</h3>
+          <div class="muted">${item.description}</div>
+        </div>
+      `).join("");
 
       $("#executionStatus").innerHTML = `
         <div class="card">
@@ -1049,6 +1137,8 @@
           <div class="eyebrow">Server blockers</div>
           <div class="stack">${reasons}</div>
         </div>
+        ${executors}
+        ${strategies}
       `;
     }
 
@@ -1134,6 +1224,35 @@
       renderExecutionStatus();
       renderExecutions();
       populateTokenSelects();
+      renderStrategyCards();
+    }
+
+    async function loadOpportunityValidations() {
+      const ids = state.opportunities
+        .filter((item) => item.executionSupported)
+        .slice(0, 5)
+        .map((item) => item.id);
+
+      if (!ids.length) {
+        state.validations = {};
+        renderAll();
+        return;
+      }
+
+      try {
+        const payload = await api("/api/opportunities/validate", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            ids,
+            usd: Math.min(Number($("#simCapital")?.value || 250), 250),
+            slippageBps: Number($("#slippageBps")?.value || 50)
+          })
+        });
+        state.validations = Object.fromEntries((payload.items || []).map((item) => [item.opportunityId, item]));
+        renderAll();
+      } catch (error) {
+      }
     }
 
     async function loadAll() {
@@ -1147,7 +1266,9 @@
           searchers,
           executionStatus,
           executions,
-          tokens
+          tokens,
+          capabilities,
+          strategies
         ] = await Promise.all([
           api("/api/stats"),
           api("/api/opportunities?limit=250"),
@@ -1157,7 +1278,9 @@
           api("/api/searchers?limit=100"),
           api("/api/execution/status"),
           api("/api/executions?limit=100"),
-          api("/api/tokens")
+          api("/api/tokens"),
+          api("/api/execution/capabilities"),
+          api("/api/strategies")
         ]);
 
         state.stats = stats;
@@ -1169,12 +1292,16 @@
         state.executionStatus = executionStatus;
         state.executions = executions.items || [];
         state.tokens = tokens.items || [];
+        state.capabilities = capabilities.items || [];
+        state.strategies = strategies.items || [];
+        state.validations = {};
 
         $("#statusDot").className = "status-dot live";
         $("#statusLabel").textContent = "Connected";
         $("#statusMeta").textContent = stats.mode + " | " + stats.indexer;
 
         renderAll();
+        void loadOpportunityValidations();
       } catch (error) {
         $("#statusDot").className = "status-dot offline";
         $("#statusLabel").textContent = "API offline";
@@ -1317,6 +1444,7 @@
       await api("/api/admin/scan", { method: "POST" });
       await loadAll();
     });
+    $("#validateBtn").addEventListener("click", loadOpportunityValidations);
     $("#oppSearch").addEventListener("input", renderOpportunities);
     $("#oppChainFilter").addEventListener("change", renderOpportunities);
     $("#quoteBtn").addEventListener("click", requestQuote);
