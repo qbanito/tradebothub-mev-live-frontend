@@ -497,6 +497,7 @@
               <table>
                 <thead>
                   <tr>
+                    <th>Chain</th>
                     <th>Asset</th>
                     <th>Route</th>
                     <th>Spread</th>
@@ -548,13 +549,20 @@
         <div class="panel">
           <div class="actions" style="margin-top:0; margin-bottom:14px;">
             <input id="oppSearch" placeholder="Buscar activo o DEX">
+            <select id="oppChainFilter">
+              <option value="all">All chains</option>
+            </select>
             <button class="btn" id="scanBtn">Run scan</button>
+          </div>
+          <div class="notice" style="margin-bottom:14px;">
+            Multi-chain scanning increases discovery coverage. Execution from this frontend still targets Solana wallet flow until other chain executors are added.
           </div>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>Detected</th>
+                  <th>Chain</th>
                   <th>Asset</th>
                   <th>Buy</th>
                   <th>Sell</th>
@@ -745,6 +753,7 @@
     }).format(Number(value || 0));
     const short = (value) => value ? value.slice(0, 6) + "..." + value.slice(-5) : "-";
     const time = (value) => value ? new Date(value).toLocaleTimeString() : "-";
+    const chainName = (item) => item?.chainName || item?.chainId || "Unknown";
 
     async function api(path, options) {
       const response = await fetch(API + path, options);
@@ -802,6 +811,8 @@
       const items = [
         ["Markets", state.stats.marketCount || 0],
         ["Opportunities", state.stats.opportunityCount || 0],
+        ["Chains", state.stats.chainCount || 0],
+        ["Scanner assets", state.stats.scannerAssetCount || 0],
         ["Indexed TX", state.stats.transactionCount || 0],
         ["Arbitrages", state.stats.arbitrageCount || 0],
         ["Est. Net", money(state.stats.estimatedNetUsd || 0)],
@@ -819,6 +830,7 @@
       const rows = state.opportunities.slice(0, 10);
       $("#overviewOpps").innerHTML = rows.length ? rows.map((item) => `
         <tr>
+          <td><span class="pill">${chainName(item)}</span></td>
           <td>${item.symbol}</td>
           <td>${item.buyDex} -> ${item.sellDex}</td>
           <td>${item.spreadBps} bps</td>
@@ -826,13 +838,14 @@
           <td class="${item.net >= 0 ? "positive" : "negative"}">${money(item.net)}</td>
           <td><span class="pill ${item.status === "watch" ? "warn" : ""}">${item.status}</span></td>
         </tr>
-      `).join("") : `<tr><td colspan="6">No opportunities above threshold.</td></tr>`;
+      `).join("") : `<tr><td colspan="7">No opportunities above threshold.</td></tr>`;
     }
 
     function renderDexBars() {
       const dexTotals = {};
       state.market.forEach((item) => {
-        dexTotals[item.dex] = (dexTotals[item.dex] || 0) + Number(item.liquidity || 0);
+        const key = `${item.dex} @ ${chainName(item)}`;
+        dexTotals[key] = (dexTotals[key] || 0) + Number(item.liquidity || 0);
       });
       const entries = Object.entries(dexTotals).sort((a, b) => b[1] - a[1]).slice(0, 8);
       const max = Math.max(1, ...entries.map((entry) => entry[1]));
@@ -862,7 +875,7 @@
         <div class="card">
           <div class="eyebrow">Scanner</div>
           <h3>${state.stats.opportunityCount || 0} live ideas</h3>
-          <div class="muted">Markets ${state.stats.marketCount || 0}</div>
+          <div class="muted">${state.stats.marketCount || 0} markets across ${state.stats.chainCount || 0} chains</div>
         </div>
         <div class="card">
           <div class="eyebrow">Wallet mode</div>
@@ -870,11 +883,33 @@
           <div class="muted">${state.walletPublicKey ? short(state.walletPublicKey) : "connect your wallet in Execution"}</div>
         </div>
         <div class="card">
+          <div class="eyebrow">Execution chain</div>
+          <h3>${(status.executionChains || ["solana"]).join(", ")}</h3>
+          <div class="muted">Multi-chain scanner, Solana executor</div>
+        </div>
+        <div class="card">
           <div class="eyebrow">Server signer</div>
           <h3>${status.canExecuteLive ? "ready" : "blocked"}</h3>
           <div class="stack">${reasons}</div>
         </div>
       `;
+    }
+
+    function renderChainFilter() {
+      const current = $("#oppChainFilter").value || "all";
+      const chains = [...new Set(
+        (state.stats.scannerChains || state.market.map((item) => item.chainId) || [])
+          .filter(Boolean)
+      )];
+      const options = [`<option value="all">All chains</option>`].concat(
+        chains.sort().map((chainId) => {
+          const match = state.market.find((item) => item.chainId === chainId);
+          const label = match?.chainName || chainId;
+          return `<option value="${chainId}">${label}</option>`;
+        })
+      );
+      $("#oppChainFilter").innerHTML = options.join("");
+      $("#oppChainFilter").value = chains.includes(current) || current === "all" ? current : "all";
     }
 
     function allExecutions() {
@@ -897,10 +932,16 @@
 
     function renderOpportunities() {
       const q = ($("#oppSearch").value || "").toLowerCase();
-      const rows = state.opportunities.filter((item) => JSON.stringify(item).toLowerCase().includes(q));
+      const chainFilter = $("#oppChainFilter").value || "all";
+      const rows = state.opportunities.filter((item) => {
+        const matchesSearch = JSON.stringify(item).toLowerCase().includes(q);
+        const matchesChain = chainFilter === "all" || item.chainId === chainFilter;
+        return matchesSearch && matchesChain;
+      });
       $("#oppRows").innerHTML = rows.length ? rows.map((item) => `
         <tr>
           <td>${time(item.detectedAt)}</td>
+          <td><span class="pill">${chainName(item)}</span></td>
           <td>${item.symbol}</td>
           <td>${item.buyDex}</td>
           <td>${item.sellDex}</td>
@@ -910,7 +951,7 @@
           <td class="${item.net >= 0 ? "positive" : "negative"}">${money(item.net)}</td>
           <td>${item.score}</td>
         </tr>
-      `).join("") : `<tr><td colspan="9">No matching opportunities.</td></tr>`;
+      `).join("") : `<tr><td colspan="10">No matching opportunities.</td></tr>`;
     }
 
     function renderTransactions() {
@@ -975,11 +1016,11 @@
       $("#sideMode").textContent = walletConnected ? "Wallet connected" : "Wallet mode";
       $("#sideReadiness").textContent = walletConnected
         ? "Tu wallet ya puede firmar transacciones preparadas por el backend."
-        : "Conecta tu wallet para firmar y enviar desde el frontend.";
+        : "Conecta tu wallet para firmar y enviar desde el frontend. El scanner puede cubrir mas chains, pero este executor sigue siendo Solana.";
 
       $("#executionBanner").textContent = walletConnected
-        ? "Modo recomendado: el backend prepara la transaccion y tu wallet la firma localmente en el navegador."
-        : "No voy a poner una private key viva en Render para este flujo. Conecta tu wallet y el frontend firmara localmente.";
+        ? "Modo recomendado: el backend prepara la transaccion y tu wallet la firma localmente en el navegador. Hoy la ejecucion real sigue centrada en Solana."
+        : "No voy a poner una private key viva en Render para este flujo. Conecta tu wallet y el frontend firmara localmente. El discovery ya puede crecer a multi-chain.";
 
       $("#modeBadge").textContent = walletConnected ? "Wallet ready" : "Wallet mode";
       $("#modeBadge").className = walletConnected ? "btn primary" : "btn warn";
@@ -1085,6 +1126,7 @@
       renderDexBars();
       renderReadinessCards();
       renderOverviewExecutions();
+      renderChainFilter();
       renderOpportunities();
       renderTransactions();
       renderArbitrages();
@@ -1108,8 +1150,8 @@
           tokens
         ] = await Promise.all([
           api("/api/stats"),
-          api("/api/opportunities?limit=150"),
-          api("/api/market?limit=250"),
+          api("/api/opportunities?limit=250"),
+          api("/api/market?limit=600"),
           api("/api/transactions?limit=100"),
           api("/api/arbitrages?limit=100"),
           api("/api/searchers?limit=100"),
@@ -1276,6 +1318,7 @@
       await loadAll();
     });
     $("#oppSearch").addEventListener("input", renderOpportunities);
+    $("#oppChainFilter").addEventListener("change", renderOpportunities);
     $("#quoteBtn").addEventListener("click", requestQuote);
     $("#buildWalletBtn").addEventListener("click", buildWalletTransaction);
     $("#sendWalletBtn").addEventListener("click", sendWithWallet);
