@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0a131b">
-  <title>TradeBotHub MEV OS v3.3</title>
+  <title>TradeBotHub MEV OS v3.4</title>
   <style>
     :root {
       --bg: #081018;
@@ -449,7 +449,7 @@
     <aside>
       <div class="brand">
         TRADEBOTHUB
-        <small>MEV OS v3.3</small>
+        <small>MEV OS v3.4</small>
       </div>
 
       <div class="nav" id="nav">
@@ -668,6 +668,7 @@
 
             <div class="actions">
               <button class="btn" id="connectWalletBtn">Connect wallet</button>
+              <button class="btn" id="demoTopBtn">Demo best ready</button>
               <button class="btn" id="quoteBtn">Get live quote</button>
               <button class="btn" id="buildWalletBtn">Build for wallet</button>
               <button class="btn primary" id="sendWalletBtn">Send with wallet</button>
@@ -679,6 +680,9 @@
           <div class="panel">
             <div class="eyebrow">Wallet and backend readiness</div>
             <h2>Execution status</h2>
+            <div class="actions" style="margin-top:0; margin-bottom:12px;">
+              <button class="btn warn" id="killSwitchBtn">Kill switch off</button>
+            </div>
             <div class="stack" id="walletStatus" style="margin-bottom:12px;"></div>
             <div class="stack" id="executionStatus"></div>
           </div>
@@ -727,6 +731,29 @@
             </div>
           </div>
         </div>
+
+        <div class="panel" style="margin-top:14px;">
+          <div class="eyebrow">Trade ledger</div>
+          <h2>Realized and demo results</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>Mode</th>
+                  <th>Pair</th>
+                  <th>Status</th>
+                  <th>Notional</th>
+                  <th>Quoted Net</th>
+                  <th>Realized</th>
+                  <th>Fee</th>
+                  <th>Signature / Reason</th>
+                </tr>
+              </thead>
+              <tbody id="ledgerRows"></tbody>
+            </table>
+          </div>
+        </div>
       </section>
     </main>
   </div>
@@ -745,6 +772,8 @@
       executionStatus: null,
       executions: [],
       clientExecutions: [],
+      tradeLedger: [],
+      riskStatus: null,
       tokens: [],
       capabilities: [],
       strategies: [],
@@ -767,6 +796,7 @@
     const chainName = (item) => item?.chainName || item?.chainId || "Unknown";
     const validationFor = (item) => state.validations[item.id] || null;
     const executorFor = (chainId) => (state.capabilities || []).find((item) => item.chainId === chainId) || null;
+    const topReadyOpportunity = () => state.opportunities.find((item) => item.executionSupported && item.status === "ready") || null;
 
     function qualityPillClass(item) {
       if (item.qualityTier === "A" || item.qualityTier === "B") {
@@ -870,7 +900,8 @@
         ["A/B quality", state.stats.highQualityOpportunityCount || 0],
         ["Ready routes", state.stats.readyOpportunityCount || 0],
         ["Est. Net", money(state.stats.estimatedNetUsd || 0)],
-        ["Realized", money(state.stats.realizedNetUsd || 0)]
+        ["Realized", money(state.stats.realizedNetUsd || 0)],
+        ["Daily loss", money(state.stats.dailyLossUsd || 0)]
       ];
       $("#metrics").innerHTML = items.map(([label, value]) => `
         <div class="metric">
@@ -1068,10 +1099,14 @@
 
     function renderExecutionStatus() {
       const status = state.executionStatus;
+      const risk = state.riskStatus;
       const walletConnected = Boolean(state.walletPublicKey);
       $("#connectWalletBtn").textContent = walletConnected ? "Disconnect wallet" : "Connect wallet";
       $("#buildWalletBtn").disabled = !walletConnected;
       $("#sendWalletBtn").disabled = !walletConnected || !state.builtSwap;
+      $("#demoTopBtn").disabled = !topReadyOpportunity();
+      $("#killSwitchBtn").textContent = risk?.killSwitch ? "Kill switch on" : "Kill switch off";
+      $("#killSwitchBtn").className = risk?.killSwitch ? "btn" : "btn warn";
 
       $("#walletStatus").innerHTML = `
         <div class="card">
@@ -1101,6 +1136,23 @@
       const reasons = status.reasons?.length
         ? status.reasons.map((reason) => `<div class="pill off">${reason}</div>`).join("")
         : `<div class="pill">All checks passed</div>`;
+      const riskCards = risk ? `
+        <div class="card">
+          <div class="eyebrow">Risk</div>
+          <h3>${risk.killSwitch ? "blocked" : "armed"}</h3>
+          <div class="muted">Daily realized ${money(risk.counters?.dailyRealizedNetUsd || 0)} | Daily loss ${money(risk.counters?.dailyLossUsd || 0)}</div>
+        </div>
+        <div class="card">
+          <div class="eyebrow">Guardrails</div>
+          <h3>${risk.activeCooldowns?.length || 0} cooldowns</h3>
+          <div class="muted">Failures ${risk.counters?.consecutiveFailures || 0} / ${risk.limits?.maxConsecutiveFailures || 0}</div>
+        </div>
+        <div class="card">
+          <div class="eyebrow">Blacklist</div>
+          <h3>${risk.blacklist?.assets?.length || 0} assets / ${risk.blacklist?.dexes?.length || 0} dexes</h3>
+          <div class="muted">Max token exposure ${money(risk.limits?.maxTokenExposureUsd || 0)}</div>
+        </div>
+      ` : "";
       const executors = (state.capabilities || []).map((item) => `
         <div class="card">
           <div class="eyebrow">${item.chainName}</div>
@@ -1137,6 +1189,7 @@
           <div class="eyebrow">Server blockers</div>
           <div class="stack">${reasons}</div>
         </div>
+        ${riskCards}
         ${executors}
         ${strategies}
       `;
@@ -1153,6 +1206,22 @@
           <td class="mono">${short(item.signature)}</td>
         </tr>
       `).join("") : `<tr><td colspan="5">No execution attempts recorded.</td></tr>`;
+    }
+
+    function renderTradeLedger() {
+      $("#ledgerRows").innerHTML = state.tradeLedger.length ? state.tradeLedger.map((item) => `
+        <tr>
+          <td>${time(item.createdAt)}</td>
+          <td><span class="pill ${item.mode === "demo" ? "warn" : ""}">${item.mode}</span></td>
+          <td>${item.inputSymbol || "-"} -> ${item.outputSymbol || item.assetSymbol || "-"}</td>
+          <td><span class="pill ${item.success ? "" : "off"}">${item.status}</span></td>
+          <td>${money(item.notionalUsd || item.quotedNotionalUsd || 0)}</td>
+          <td>${item.quotedNetUsd == null ? "-" : money(item.quotedNetUsd)}</td>
+          <td class="${Number(item.realizedNetUsd || 0) >= 0 ? "positive" : "negative"}">${item.realizedNetUsd == null ? "-" : money(item.realizedNetUsd)}</td>
+          <td>${item.feeLamports ? ((item.feeLamports || 0) / 1e9).toFixed(6) + " SOL" : "-"}</td>
+          <td class="mono">${item.signature ? short(item.signature) : (item.failureReason || "-")}</td>
+        </tr>
+      `).join("") : `<tr><td colspan="9">No trade ledger entries yet.</td></tr>`;
     }
 
     function populateTokenSelects() {
@@ -1223,6 +1292,7 @@
       renderSearchers();
       renderExecutionStatus();
       renderExecutions();
+      renderTradeLedger();
       populateTokenSelects();
       renderStrategyCards();
     }
@@ -1266,6 +1336,8 @@
           searchers,
           executionStatus,
           executions,
+          tradeLedger,
+          riskStatus,
           tokens,
           capabilities,
           strategies
@@ -1278,6 +1350,8 @@
           api("/api/searchers?limit=100"),
           api("/api/execution/status"),
           api("/api/executions?limit=100"),
+          api("/api/trade-ledger?limit=100"),
+          api("/api/risk/status"),
           api("/api/tokens"),
           api("/api/execution/capabilities"),
           api("/api/strategies")
@@ -1291,6 +1365,8 @@
         state.searchers = searchers.items || [];
         state.executionStatus = executionStatus;
         state.executions = executions.items || [];
+        state.tradeLedger = tradeLedger.items || [];
+        state.riskStatus = riskStatus;
         state.tokens = tokens.items || [];
         state.capabilities = capabilities.items || [];
         state.strategies = strategies.items || [];
@@ -1395,6 +1471,27 @@
           signature
         });
         state.clientExecutions = state.clientExecutions.slice(0, 50);
+        try {
+          await api("/api/execution/report", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              signature,
+              walletPublicKey: state.walletPublicKey,
+              opportunityId: state.builtSwap.opportunityId || null,
+              inputToken: state.builtSwap.inputToken.symbol,
+              outputToken: state.builtSwap.outputToken.symbol,
+              inputMint: state.builtSwap.inputToken.mint,
+              outputMint: state.builtSwap.outputToken.mint,
+              amountIn: state.builtSwap.amountIn,
+              amountOutQuoted: state.builtSwap.amountOutQuoted,
+              swapUsdValue: state.builtSwap.swapUsdValue,
+              priceImpactPct: state.builtSwap.priceImpactPct,
+              routePlan: state.builtSwap.routePlan || []
+            })
+          });
+        } catch (error) {
+        }
         $("#quoteResult").innerHTML = `
           <div class="card">
             <div class="eyebrow">Wallet execution sent</div>
@@ -1403,8 +1500,57 @@
             <p>Signature: <span class="mono">${signature}</span></p>
           </div>
         `;
+        await loadAll();
         renderExecutions();
         renderOverviewExecutions();
+      } catch (error) {
+        renderQuote(null, error.message || String(error));
+      }
+    }
+
+    async function runDemoTopOpportunity() {
+      const opportunity = topReadyOpportunity();
+      if (!opportunity) {
+        renderQuote(null, "No ready Solana opportunity is available for demo execution.");
+        return;
+      }
+      try {
+        const payload = await api("/api/opportunities/demo-execute", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            opportunityId: opportunity.id,
+            usd: Math.min(Number($("#simCapital").value || 250), 250),
+            slippageBps: Number($("#slippageBps").value || 50)
+          })
+        });
+        $("#quoteResult").innerHTML = `
+          <div class="card">
+            <div class="eyebrow">Demo execution</div>
+            <h3>${opportunity.symbol} on ${chainName(opportunity)}</h3>
+            <p>Status: <strong>${payload.entry.status}</strong></p>
+            <p>Quoted net: <strong>${money(payload.entry.quotedNetUsd || 0)}</strong></p>
+            <p>Realized demo: <strong class="${Number(payload.entry.realizedNetUsd || 0) >= 0 ? "positive" : "negative"}">${payload.entry.realizedNetUsd == null ? "-" : money(payload.entry.realizedNetUsd)}</strong></p>
+          </div>
+        `;
+        await loadAll();
+      } catch (error) {
+        renderQuote(null, error.message || String(error));
+      }
+    }
+
+    async function toggleKillSwitch() {
+      try {
+        const enabled = !Boolean(state.riskStatus?.killSwitch);
+        await api("/api/risk/kill-switch", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            enabled,
+            reason: enabled ? "Enabled from frontend control panel" : ""
+          })
+        });
+        await loadAll();
       } catch (error) {
         renderQuote(null, error.message || String(error));
       }
@@ -1450,6 +1596,8 @@
     $("#quoteBtn").addEventListener("click", requestQuote);
     $("#buildWalletBtn").addEventListener("click", buildWalletTransaction);
     $("#sendWalletBtn").addEventListener("click", sendWithWallet);
+    $("#demoTopBtn").addEventListener("click", runDemoTopOpportunity);
+    $("#killSwitchBtn").addEventListener("click", toggleKillSwitch);
     $("#connectWalletBtn").addEventListener("click", async () => {
       if (state.walletPublicKey) {
         await disconnectWallet();
