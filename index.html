@@ -652,16 +652,19 @@
             </div>
 
             <div class="actions">
+              <button class="btn" id="connectWalletBtn">Connect wallet</button>
               <button class="btn" id="quoteBtn">Get live quote</button>
-              <button class="btn primary" id="executeBtn">Execute live swap</button>
+              <button class="btn" id="buildWalletBtn">Build for wallet</button>
+              <button class="btn primary" id="sendWalletBtn">Send with wallet</button>
             </div>
 
             <div class="stack" id="quoteResult" style="margin-top:16px;"></div>
           </div>
 
           <div class="panel">
-            <div class="eyebrow">Backend readiness</div>
+            <div class="eyebrow">Wallet and backend readiness</div>
             <h2>Execution status</h2>
+            <div class="stack" id="walletStatus" style="margin-bottom:12px;"></div>
             <div class="stack" id="executionStatus"></div>
           </div>
         </div>
@@ -713,6 +716,7 @@
     </main>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.98.4/lib/index.iife.min.js"></script>
   <script src="config.js"></script>
   <script>
     const API = (window.TRADEBOTHUB_CONFIG?.API_BASE_URL || "").replace(/\/$/, "");
@@ -725,8 +729,12 @@
       searchers: [],
       executionStatus: null,
       executions: [],
+      clientExecutions: [],
       tokens: [],
-      lastQuote: null
+      lastQuote: null,
+      builtSwap: null,
+      walletPublicKey: null,
+      walletLabel: null
     };
 
     const $ = (selector) => document.querySelector(selector);
@@ -745,6 +753,49 @@
         throw new Error(payload.error || String(response.status));
       }
       return payload;
+    }
+
+    function getWalletProvider() {
+      if (window.phantom?.solana?.isPhantom) {
+        return { provider: window.phantom.solana, label: "Phantom" };
+      }
+      if (window.solana?.isPhantom) {
+        return { provider: window.solana, label: "Phantom" };
+      }
+      if (window.solflare?.isSolflare) {
+        return { provider: window.solflare, label: "Solflare" };
+      }
+      return null;
+    }
+
+    async function connectWallet() {
+      const wallet = getWalletProvider();
+      if (!wallet) {
+        throw new Error("No injected Solana wallet found. Install Phantom or Solflare in this browser.");
+      }
+      const response = await wallet.provider.connect();
+      const publicKey = response?.publicKey?.toString?.() || wallet.provider.publicKey?.toString?.();
+      if (!publicKey) {
+        throw new Error("Wallet connected but no public key was returned.");
+      }
+      state.walletPublicKey = publicKey;
+      state.walletLabel = wallet.label;
+      renderExecutionStatus();
+      return wallet.provider;
+    }
+
+    async function disconnectWallet() {
+      const wallet = getWalletProvider();
+      if (wallet?.provider?.disconnect) {
+        try {
+          await wallet.provider.disconnect();
+        } catch (error) {
+        }
+      }
+      state.walletPublicKey = null;
+      state.walletLabel = null;
+      state.builtSwap = null;
+      renderExecutionStatus();
     }
 
     function renderMetrics() {
@@ -809,25 +860,31 @@
 
       $("#readinessCards").innerHTML = `
         <div class="card">
-          <div class="eyebrow">Mode</div>
-          <h3>${status.mode}</h3>
-          <div class="muted">Broadcast: ${status.broadcastMode}</div>
+          <div class="eyebrow">Scanner</div>
+          <h3>${state.stats.opportunityCount || 0} live ideas</h3>
+          <div class="muted">Markets ${state.stats.marketCount || 0}</div>
         </div>
         <div class="card">
-          <div class="eyebrow">Signer</div>
-          <h3 class="mono">${status.signerPublicKey ? short(status.signerPublicKey) : "missing"}</h3>
-          <div class="muted">Balance: ${status.walletBalanceSol == null ? "-" : status.walletBalanceSol + " SOL"}</div>
+          <div class="eyebrow">Wallet mode</div>
+          <h3>${status.walletExecutionSupported ? "supported" : "off"}</h3>
+          <div class="muted">${state.walletPublicKey ? short(state.walletPublicKey) : "connect your wallet in Execution"}</div>
         </div>
         <div class="card">
-          <div class="eyebrow">Live gate</div>
+          <div class="eyebrow">Server signer</div>
           <h3>${status.canExecuteLive ? "ready" : "blocked"}</h3>
           <div class="stack">${reasons}</div>
         </div>
       `;
     }
 
+    function allExecutions() {
+      return [...state.clientExecutions, ...state.executions].sort((a, b) => {
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      });
+    }
+
     function renderOverviewExecutions() {
-      const rows = state.executions.slice(0, 6);
+      const rows = allExecutions().slice(0, 6);
       $("#overviewExecs").innerHTML = rows.length ? rows.map((item) => `
         <tr>
           <td>${time(item.createdAt)}</td>
@@ -897,24 +954,35 @@
 
     function renderExecutionStatus() {
       const status = state.executionStatus;
+      const walletConnected = Boolean(state.walletPublicKey);
+      $("#connectWalletBtn").textContent = walletConnected ? "Disconnect wallet" : "Connect wallet";
+      $("#buildWalletBtn").disabled = !walletConnected;
+      $("#sendWalletBtn").disabled = !walletConnected || !state.builtSwap;
+
+      $("#walletStatus").innerHTML = `
+        <div class="card">
+          <div class="eyebrow">Wallet</div>
+          <h3>${walletConnected ? state.walletLabel || "Connected" : "not connected"}</h3>
+          <div class="muted mono">${walletConnected ? state.walletPublicKey : "Use Phantom or Solflare in this browser."}</div>
+        </div>
+      `;
+
       if (!status) {
         $("#executionStatus").innerHTML = `<div class="card">Waiting for backend readiness...</div>`;
         return;
       }
 
-      $("#sideMode").textContent = status.mode === "live" ? "Live mode" : "Paper mode";
-      $("#sideReadiness").textContent = status.canExecuteLive
-        ? "Signer and flags are ready for live broadcast."
-        : "Live execution is still blocked by guardrails.";
+      $("#sideMode").textContent = walletConnected ? "Wallet connected" : "Wallet mode";
+      $("#sideReadiness").textContent = walletConnected
+        ? "Tu wallet ya puede firmar transacciones preparadas por el backend."
+        : "Conecta tu wallet para firmar y enviar desde el frontend.";
 
-      $("#executionBanner").textContent = status.canExecuteLive
-        ? "Backend ready: the service reports that live broadcast is enabled. Review size and slippage before sending."
-        : "Live still blocked: configure signer keys and explicit flags in Render before executing transactions.";
+      $("#executionBanner").textContent = walletConnected
+        ? "Modo recomendado: el backend prepara la transaccion y tu wallet la firma localmente en el navegador."
+        : "No voy a poner una private key viva en Render para este flujo. Conecta tu wallet y el frontend firmara localmente.";
 
-      $("#modeBadge").textContent = status.canExecuteLive ? "Live ready" : (status.mode === "live" ? "Live blocked" : "Paper only");
-      $("#modeBadge").className = status.canExecuteLive ? "btn primary" : "btn warn";
-
-      $("#executeBtn").disabled = !status.canExecuteLive;
+      $("#modeBadge").textContent = walletConnected ? "Wallet ready" : "Wallet mode";
+      $("#modeBadge").className = walletConnected ? "btn primary" : "btn warn";
 
       const reasons = status.reasons?.length
         ? status.reasons.map((reason) => `<div class="pill off">${reason}</div>`).join("")
@@ -922,14 +990,14 @@
 
       $("#executionStatus").innerHTML = `
         <div class="card">
-          <div class="eyebrow">Signer</div>
-          <h3 class="mono">${status.signerPublicKey || "not configured"}</h3>
-          <div class="muted">Balance: ${status.walletBalanceSol == null ? "-" : status.walletBalanceSol + " SOL"}</div>
+          <div class="eyebrow">Backend build mode</div>
+          <h3>${status.walletExecutionSupported ? "ready" : "off"}</h3>
+          <div class="muted">RPC: ${status.rpcUrl}</div>
         </div>
         <div class="card">
-          <div class="eyebrow">Broadcast</div>
-          <h3>${status.broadcastMode}</h3>
-          <div class="muted">RPC: ${status.rpcUrl}</div>
+          <div class="eyebrow">Server signer</div>
+          <h3>${status.canExecuteLive ? "ready" : "blocked"}</h3>
+          <div class="muted mono">${status.signerPublicKey || "not configured"}</div>
         </div>
         <div class="card">
           <div class="eyebrow">Limits</div>
@@ -937,19 +1005,20 @@
           <div class="muted">Slippage default ${status.defaults.slippageBps} bps</div>
         </div>
         <div class="card">
-          <div class="eyebrow">Blockers</div>
+          <div class="eyebrow">Server blockers</div>
           <div class="stack">${reasons}</div>
         </div>
       `;
     }
 
     function renderExecutions() {
-      $("#executionRows").innerHTML = state.executions.length ? state.executions.map((item) => `
+      const rows = allExecutions();
+      $("#executionRows").innerHTML = rows.length ? rows.map((item) => `
         <tr>
           <td>${time(item.createdAt)}</td>
           <td>${item.inputSymbol} -> ${item.outputSymbol}</td>
           <td><span class="pill ${item.status === "confirmed" ? "" : "warn"}">${item.status}</span></td>
-          <td>${item.broadcastMode}</td>
+          <td>${item.broadcastMode || item.mode || "wallet"}</td>
           <td class="mono">${short(item.signature)}</td>
         </tr>
       `).join("") : `<tr><td colspan="5">No execution attempts recorded.</td></tr>`;
@@ -977,15 +1046,19 @@
       }
 
       const route = (payload.routePlan || []).map((item) => item.label).filter(Boolean).join(" -> ") || "direct";
+      const buildStatus = payload.swapBuild
+        ? `<p>Wallet tx: <strong>built and ready to sign</strong></p>`
+        : `<p>Wallet tx: <strong>quote only</strong></p>`;
       $("#quoteResult").innerHTML = `
         <div class="card">
-          <div class="eyebrow">Quote</div>
+          <div class="eyebrow">${payload.swapBuild ? "Wallet build" : "Quote"}</div>
           <h3>${payload.inputToken.symbol} -> ${payload.outputToken.symbol}</h3>
           <p>In: <strong>${payload.amountIn}</strong></p>
           <p>Quoted out: <strong>${payload.amountOutQuoted}</strong></p>
           <p>Min out: <strong>${payload.amountOutMin}</strong></p>
           <p>Swap USD value: <strong>${money(payload.swapUsdValue)}</strong></p>
           <p>Price impact: <strong>${payload.priceImpactPct}%</strong></p>
+          ${buildStatus}
           <div class="muted">Route: ${route}</div>
         </div>
       `;
@@ -1086,32 +1159,83 @@
       }
     }
 
-    async function executeTrade() {
-      const pair = $("#inputToken").value + " -> " + $("#outputToken").value;
-      if (!window.confirm("Execute live swap for " + pair + "?")) {
-        return;
-      }
-
+    async function buildWalletTransaction() {
       try {
-        const payload = await api("/api/execution/execute", {
+        if (!state.walletPublicKey) {
+          await connectWallet();
+        }
+        const payload = await api("/api/execution/build", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
+            userPublicKey: state.walletPublicKey,
             inputToken: $("#inputToken").value,
             outputToken: $("#outputToken").value,
             amount: $("#tradeAmount").value,
             slippageBps: $("#slippageBps").value
           })
         });
+        state.builtSwap = payload;
+        renderQuote(payload);
+        renderExecutionStatus();
+      } catch (error) {
+        renderQuote(null, error.message || String(error));
+      }
+    }
+
+    async function sendWithWallet() {
+      try {
+        const wallet = getWalletProvider();
+        if (!wallet) {
+          throw new Error("No compatible Solana wallet found in this browser.");
+        }
+        if (!state.walletPublicKey) {
+          await connectWallet();
+        }
+        if (!state.builtSwap) {
+          await buildWalletTransaction();
+        }
+        if (!state.builtSwap?.swapBuild?.swapTransaction) {
+          throw new Error("No built wallet transaction is available.");
+        }
+        if (!window.solanaWeb3?.VersionedTransaction) {
+          throw new Error("Solana web3 library did not load in the frontend.");
+        }
+
+        const bytes = Uint8Array.from(atob(state.builtSwap.swapBuild.swapTransaction), (char) => char.charCodeAt(0));
+        const transaction = window.solanaWeb3.VersionedTransaction.deserialize(bytes);
+        const sendResult = await wallet.provider.signAndSendTransaction(transaction);
+        const signature = typeof sendResult === "string" ? sendResult : (sendResult?.signature || sendResult?.hash);
+        if (!signature) {
+          throw new Error("Wallet returned no signature.");
+        }
+
+        const connection = new window.solanaWeb3.Connection(
+          state.executionStatus?.rpcUrl || "https://api.mainnet-beta.solana.com",
+          "confirmed"
+        );
+        await connection.confirmTransaction(signature, "confirmed");
+
+        state.clientExecutions.unshift({
+          createdAt: new Date().toISOString(),
+          inputSymbol: state.builtSwap.inputToken.symbol,
+          outputSymbol: state.builtSwap.outputToken.symbol,
+          status: "confirmed",
+          broadcastMode: "wallet",
+          mode: "wallet",
+          signature
+        });
+        state.clientExecutions = state.clientExecutions.slice(0, 50);
         $("#quoteResult").innerHTML = `
           <div class="card">
-            <div class="eyebrow">Execution sent</div>
-            <h3>${payload.execution.inputSymbol} -> ${payload.execution.outputSymbol}</h3>
-            <p>Status: <strong>${payload.execution.status}</strong></p>
-            <p>Signature: <span class="mono">${payload.execution.signature}</span></p>
+            <div class="eyebrow">Wallet execution sent</div>
+            <h3>${state.builtSwap.inputToken.symbol} -> ${state.builtSwap.outputToken.symbol}</h3>
+            <p>Status: <strong>confirmed</strong></p>
+            <p>Signature: <span class="mono">${signature}</span></p>
           </div>
         `;
-        await loadAll();
+        renderExecutions();
+        renderOverviewExecutions();
       } catch (error) {
         renderQuote(null, error.message || String(error));
       }
@@ -1153,7 +1277,19 @@
     });
     $("#oppSearch").addEventListener("input", renderOpportunities);
     $("#quoteBtn").addEventListener("click", requestQuote);
-    $("#executeBtn").addEventListener("click", executeTrade);
+    $("#buildWalletBtn").addEventListener("click", buildWalletTransaction);
+    $("#sendWalletBtn").addEventListener("click", sendWithWallet);
+    $("#connectWalletBtn").addEventListener("click", async () => {
+      if (state.walletPublicKey) {
+        await disconnectWallet();
+        return;
+      }
+      try {
+        await connectWallet();
+      } catch (error) {
+        renderQuote(null, error.message || String(error));
+      }
+    });
     $("#simulateBtn").addEventListener("click", runSimulation);
 
     loadAll();
