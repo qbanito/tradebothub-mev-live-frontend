@@ -951,7 +951,10 @@
       if (!injected) {
         return null;
       }
-      const candidates = injected.providers || [injected];
+      const candidates = (injected.providers || [injected]).filter(Boolean);
+      if (!candidates.length) {
+        return null;
+      }
       const provider = candidates.find((item) => item.isMetaMask)
         || candidates.find((item) => item.isCoinbaseWallet)
         || candidates[0];
@@ -1523,13 +1526,14 @@
         </tr>
       `).join("") : `<tr><td colspan="7">No advanced routes ranked yet.</td></tr>`;
 
-      $("#providerCards").innerHTML = state.flashLoanProviders.length ? state.flashLoanProviders.map((item) => `
+      const providerItems = (state.flashLoanProviders || []).filter(Boolean);
+      $("#providerCards").innerHTML = providerItems.length ? providerItems.map((item) => `
         <div class="card">
-          <div class="eyebrow">${item.chainName}</div>
-          <h3>${item.provider}</h3>
+          <div class="eyebrow">${item.chainName || "Unknown chain"}</div>
+          <h3>${item.provider || "Unknown provider"}</h3>
           <p>Fee <strong>${item.feeBps} bps</strong> | Max <strong>${money(item.maxBorrowUsd || 0)}</strong></p>
-          <div class="muted">${item.status} | ${item.settlement}</div>
-          <div class="muted">${item.notes}</div>
+          <div class="muted">${item.status || "unknown"} | ${item.settlement || "n/a"}</div>
+          <div class="muted">${item.notes || "No notes available."}</div>
         </div>
       `).join("") : `<div class="card">No flash-loan providers loaded.</div>`;
     }
@@ -1631,7 +1635,8 @@
         state.capabilities = capabilities.items || [];
         state.strategies = strategies.items || [];
         state.advancedPlanner = advancedPlanner || { summary: {}, items: [] };
-        state.flashLoanProviders = flashLoanProviders.items || [];
+        state.advancedPlanner.items = (state.advancedPlanner.items || []).filter(Boolean);
+        state.flashLoanProviders = (flashLoanProviders.items || []).filter(Boolean);
         state.validations = {};
         if (!state.selectedAdvancedOpportunityId && state.advancedPlanner.items?.length) {
           state.selectedAdvancedOpportunityId = state.advancedPlanner.items[0].opportunityId;
