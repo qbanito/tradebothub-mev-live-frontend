@@ -1,94 +1,10 @@
-<!doctype html>
-<html lang="es">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="theme-color" content="#07120d" />
-  <title>TradeBotHub MEV Intelligence</title>
-  <link rel="stylesheet" href="./assets/assets/styles.css" />
-</head>
-<body>
-  <div class="noise"></div>
-  <aside class="sidebar" id="sidebar">
-    <div class="brand"><span class="brand-mark">T</span><div><b>TRADEBOTHUB</b><small>MEV INTELLIGENCE</small></div></div>
-    <nav id="nav">
-      <button class="nav-item active" data-view="overview">◫ <span>Overview</span></button>
-      <button class="nav-item" data-view="opportunities">⌁ <span>Live Opportunities</span></button>
-      <button class="nav-item" data-view="searchers">◎ <span>Searchers</span></button>
-      <button class="nav-item" data-view="dex">◈ <span>DEX Intelligence</span></button>
-      <button class="nav-item" data-view="validators">◇ <span>Validators</span></button>
-      <button class="nav-item" data-view="execution">▶ <span>Execution Console</span></button>
-      <button class="nav-item" data-view="risk">⛨ <span>Risk Center</span></button>
-    </nav>
-    <div class="sidebar-foot">
-      <div class="system-row"><span class="dot" id="streamDot"></span><span>Data stream</span><b id="streamStatus">CONNECTING</b></div>
-      <div class="system-row"><span class="dot"></span><span>Executor</span><b>PAPER</b></div>
-      <div class="system-row"><span class="dot"></span><span>Network</span><b>SOLANA</b></div>
-    </div>
-  </aside>
-
-  <main class="app-shell">
-    <header class="topbar">
-      <div class="top-left"><button class="icon-btn mobile-only" id="menuBtn">☰</button><div><span class="eyebrow">TRADEBOTHUB OS</span><h1 id="viewTitle">MEV Command Center</h1></div></div>
-      <div class="top-actions">
-        <div class="network-select"><span class="dot live"></span><select id="network"><option>Solana</option><option>Polygon</option><option>Base</option><option>Arbitrum</option></select></div>
-        <button class="ghost-btn" id="refreshBtn">↻ Refresh</button>
-        <button class="primary-btn" id="paperBtn">Paper Mode</button>
-      </div>
-    </header>
-
-    <section class="view active" id="view-overview">
-      <div class="hero-card">
-        <div><span class="eyebrow">LIVE MARKET INTELLIGENCE</span><h2>Observe where value is created before the market normalizes.</h2><p>Cross-DEX arbitrage, validator economics, route profitability and paper execution in one operating system.</p></div>
-        <div class="hero-signal"><span>Opportunity pulse</span><b id="pulseValue">87.4</b><small>High activity</small></div>
-      </div>
-      <div class="metric-grid" id="metricGrid"></div>
-      <div class="two-col">
-        <section class="panel chart-panel"><div class="panel-head"><div><span class="eyebrow">NET PNL</span><h3>Performance curve</h3></div><div class="range-tabs"><button class="active">24H</button><button>7D</button><button>30D</button></div></div><canvas id="pnlChart" height="120"></canvas></section>
-        <section class="panel"><div class="panel-head"><div><span class="eyebrow">MARKET SHARE</span><h3>Profit by DEX</h3></div></div><div id="dexShare" class="bars"></div></section>
-      </div>
-      <section class="panel"><div class="panel-head"><div><span class="eyebrow">REAL-TIME</span><h3>Opportunity stream</h3></div><button class="ghost-btn small" data-open="opportunities">View all</button></div><div class="table-wrap"><table><thead><tr><th>Route</th><th>Strategy</th><th>Size</th><th>Gross</th><th>Net</th><th>Confidence</th><th>Status</th></tr></thead><tbody id="overviewRows"></tbody></table></div></section>
-    </section>
-
-    <section class="view" id="view-opportunities">
-      <div class="filterbar"><input id="oppSearch" placeholder="Search token, DEX or route"/><select id="strategyFilter"><option value="all">All strategies</option><option>Cross-DEX</option><option>Triangular</option><option>Backrun</option><option>Stablecoin</option></select><select id="statusFilter"><option value="all">All status</option><option>Detected</option><option>Simulated</option><option>Executed</option><option>Rejected</option></select><button class="primary-btn" id="scanBtn">Start scan</button></div>
-      <div class="metric-grid compact" id="oppMetrics"></div>
-      <section class="panel"><div class="panel-head"><div><span class="eyebrow">OPPORTUNITY ENGINE</span><h3>Live routes</h3></div><span class="live-label"><span class="dot live"></span> streaming</span></div><div class="table-wrap"><table><thead><tr><th>Detected</th><th>Route</th><th>Capital</th><th>Gross</th><th>Costs</th><th>Net</th><th>Score</th><th></th></tr></thead><tbody id="opportunityRows"></tbody></table></div></section>
-    </section>
-
-    <section class="view" id="view-searchers">
-      <div class="metric-grid compact" id="searcherMetrics"></div>
-      <section class="panel"><div class="panel-head"><div><span class="eyebrow">WALLET INTELLIGENCE</span><h3>Top searchers</h3></div><input id="walletSearch" class="mini-input" placeholder="Filter wallet"/></div><div class="card-grid" id="searcherCards"></div></section>
-    </section>
-
-    <section class="view" id="view-dex">
-      <div class="metric-grid compact" id="dexMetrics"></div>
-      <div class="two-col"><section class="panel"><div class="panel-head"><div><span class="eyebrow">DEX RANKING</span><h3>Efficiency and opportunity</h3></div></div><div id="dexCards" class="stack"></div></section><section class="panel chart-panel"><div class="panel-head"><div><span class="eyebrow">FLOW</span><h3>Arbitrage volume</h3></div></div><canvas id="volumeChart" height="150"></canvas></section></div>
-    </section>
-
-    <section class="view" id="view-validators">
-      <div class="metric-grid compact" id="validatorMetrics"></div>
-      <section class="panel"><div class="panel-head"><div><span class="eyebrow">VALIDATOR ECONOMICS</span><h3>Blocks, tips and captured flow</h3></div></div><div class="table-wrap"><table><thead><tr><th>Validator</th><th>Slots</th><th>Arbitrages</th><th>Tips</th><th>Top DEX</th><th>Capture</th></tr></thead><tbody id="validatorRows"></tbody></table></div></section>
-    </section>
-
-    <section class="view" id="view-execution">
-      <div class="warning-banner"><b>Live market data enabled.</b> Execution remains paper-only until a signer, audited adapters and Jito are configured.</div>
-      <div class="execution-layout">
-        <section class="panel form-panel"><div class="panel-head"><div><span class="eyebrow">SIMULATOR</span><h3>Build execution</h3></div></div><label>Strategy<select id="execStrategy"><option>Cross-DEX</option><option>Triangular</option><option>Stablecoin</option><option>Backrun</option></select></label><div class="form-grid"><label>Capital (USDC)<input id="capitalInput" type="number" value="25000"/></label><label>Min profit (USDC)<input id="profitInput" type="number" value="25"/></label><label>Max slippage (%)<input id="slippageInput" type="number" value="0.35" step="0.05"/></label><label>Max tip (USDC)<input id="tipInput" type="number" value="18"/></label></div><label>Route<select id="routeInput"><option>Orca → Raydium</option><option>Meteora → Orca</option><option>Raydium → Phoenix → Orca</option><option>Jupiter → Meteora</option></select></label><button class="primary-btn full" id="simulateBtn">Simulate transaction</button><div class="simulation-result" id="simulationResult"><span>Ready</span><p>Configure the route and run a paper simulation.</p></div></section>
-        <section class="panel"><div class="panel-head"><div><span class="eyebrow">EXECUTION QUEUE</span><h3>Recent simulations</h3></div></div><div id="executionQueue" class="stack"></div></section>
-      </div>
-    </section>
-
-    <section class="view" id="view-risk">
-      <div class="risk-hero"><div><span class="eyebrow">SYSTEM GUARDRAILS</span><h2>Capital protection before execution.</h2><p>Limits shown below are active in the paper decision engine.</p></div><div class="risk-score"><span>Risk score</span><b>18</b><small>LOW</small></div></div>
-      <div class="risk-grid" id="riskCards"></div>
-      <section class="panel"><div class="panel-head"><div><span class="eyebrow">POLICY LOG</span><h3>Recent risk decisions</h3></div></div><div id="riskLog" class="stack"></div></section>
-    </section>
-  </main>
-
-  <div class="drawer" id="drawer"><div class="drawer-head"><div><span class="eyebrow">OPPORTUNITY DETAIL</span><h3 id="drawerTitle">Route</h3></div><button class="icon-btn" id="closeDrawer">×</button></div><div id="drawerBody"></div></div>
-  <div class="toast" id="toast"></div>
-  <script src="./config.js"></script>
-  <script src="./assets/assets/app.js"></script>
-</body>
-</html>
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#06100c"><title>TradeBotHub MEV OS v3</title><style>
+:root{--bg:#06100c;--panel:#0b1712;--panel2:#101f18;--line:#20342a;--text:#edf7f0;--muted:#8ea99a;--green:#42f59e;--red:#ff6b78;--yellow:#ffd369}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 70% 0,#163629 0,#06100c 35%);color:var(--text);font:14px Inter,system-ui,sans-serif}.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}aside{padding:24px 16px;border-right:1px solid var(--line);background:#07120e;position:sticky;top:0;height:100vh}.brand{font-weight:900;font-size:18px;margin-bottom:30px}.brand span{display:block;color:var(--green);font-size:10px;letter-spacing:2px}.nav button{width:100%;background:none;border:0;color:var(--muted);padding:13px;border-radius:9px;text-align:left;cursor:pointer;margin:2px 0}.nav button.active,.nav button:hover{background:#14261d;color:white}.status{position:absolute;bottom:20px;left:16px;right:16px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#0b1712}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--yellow);margin-right:7px}.dot.live{background:var(--green);box-shadow:0 0 12px var(--green)}main{padding:24px;min-width:0}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}.top h1{margin:3px 0;font-size:27px}.eyebrow{color:var(--green);font-size:10px;letter-spacing:2px}.btn{border:1px solid var(--line);background:#102219;color:white;padding:10px 14px;border-radius:9px;cursor:pointer}.btn.primary{background:var(--green);color:#052014;border-color:var(--green);font-weight:800}.metrics{display:grid;grid-template-columns:repeat(6,minmax(130px,1fr));gap:12px}.metric,.panel{background:linear-gradient(180deg,#0e1c16,#09140f);border:1px solid var(--line);border-radius:14px}.metric{padding:15px}.metric small{color:var(--muted)}.metric b{display:block;font-size:23px;margin-top:8px}.grid{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;margin-top:14px}.panel{padding:16px;overflow:hidden}.panel h3{margin:3px 0 14px}.table{overflow:auto}table{width:100%;border-collapse:collapse;white-space:nowrap}th,td{text-align:left;padding:12px;border-bottom:1px solid #16271f}th{color:var(--muted);font-size:11px}td.green{color:var(--green)}td.red{color:var(--red)}.pill{padding:5px 8px;border-radius:12px;background:#193127;color:var(--green);font-size:11px}.view{display:none}.view.active{display:block}.bars .bar{margin:12px 0}.barline{height:7px;background:#172820;border-radius:8px;overflow:hidden;margin-top:6px}.barline i{display:block;height:100%;background:linear-gradient(90deg,#1ddf83,#75ffc0)}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.card{border:1px solid var(--line);padding:14px;border-radius:12px;background:#0b1712}.muted{color:var(--muted)}input,select{background:#09140f;border:1px solid var(--line);color:white;border-radius:8px;padding:10px}.filters{display:flex;gap:8px;margin-bottom:12px}.warning{padding:12px;border:1px solid #604e1a;background:#241f0d;border-radius:10px;color:#ffe497;margin-bottom:14px}@media(max-width:1100px){.metrics{grid-template-columns:repeat(3,1fr)}.grid{grid-template-columns:1fr}.cards{grid-template-columns:1fr 1fr}}@media(max-width:760px){.app{grid-template-columns:1fr}aside{position:relative;height:auto;border-right:0}.nav{display:flex;overflow:auto}.nav button{min-width:150px}.status{display:none}main{padding:14px}.metrics{grid-template-columns:1fr 1fr}.cards{grid-template-columns:1fr}.top{align-items:flex-start;gap:10px}.top h1{font-size:21px}}
+</style></head><body><div class="app"><aside><div class="brand">TRADEBOTHUB <span>MEV INTELLIGENCE OS v3</span></div><div class="nav" id="nav"><button class="active" data-v="overview">Overview</button><button data-v="opportunities">Opportunities</button><button data-v="transactions">Transactions</button><button data-v="arbitrages">Arbitrages</button><button data-v="searchers">Searchers</button><button data-v="execution">Paper Execution</button></div><div class="status"><span id="dot" class="dot"></span><b id="conn">Connecting</b><div class="muted" id="mode">API</div></div></aside><main><div class="top"><div><span class="eyebrow">SOLANA LIVE INTELLIGENCE</span><h1 id="title">Command Center</h1></div><div><button class="btn" id="refresh">Refresh</button> <button class="btn primary">Paper Mode</button></div></div><section class="view active" id="overview"><div class="metrics" id="metrics"></div><div class="grid"><div class="panel"><span class="eyebrow">LIVE OPPORTUNITIES</span><h3>Cross-DEX scanner</h3><div class="table"><table><thead><tr><th>Asset</th><th>Route</th><th>Spread</th><th>Capital</th><th>Est. Net</th><th>Status</th></tr></thead><tbody id="oppMini"></tbody></table></div></div><div class="panel"><span class="eyebrow">DEX FLOW</span><h3>Liquidity monitored</h3><div class="bars" id="dexBars"></div></div></div></section><section class="view" id="opportunities"><div class="filters"><input id="q" placeholder="Buscar activo o DEX"><button class="btn" id="scan">Run scan</button></div><div class="panel"><div class="table"><table><thead><tr><th>Detected</th><th>Asset</th><th>Buy</th><th>Sell</th><th>Spread</th><th>Gross</th><th>Costs</th><th>Net</th><th>Score</th></tr></thead><tbody id="oppRows"></tbody></table></div></div></section><section class="view" id="transactions"><div class="warning">Las transacciones aparecen cuando Helius y los Program IDs de DEX están configurados en Render.</div><div class="panel"><div class="table"><table><thead><tr><th>Slot</th><th>Signature</th><th>Fee payer</th><th>Programs</th><th>Fee</th><th>Status</th></tr></thead><tbody id="txRows"></tbody></table></div></div></section><section class="view" id="arbitrages"><div class="warning">“Candidate” significa transacción multi-DEX detectada. No se etiqueta como beneficio realizado sin decodificación y valoración exacta.</div><div class="panel"><div class="table"><table><thead><tr><th>Slot</th><th>Signature</th><th>Searcher</th><th>DEX programs</th><th>Type</th><th>Confidence</th><th>Realized PnL</th></tr></thead><tbody id="arbRows"></tbody></table></div></div></section><section class="view" id="searchers"><div class="cards" id="searchCards"></div></section><section class="view" id="execution"><div class="warning"><b>Paper mode only.</b> Esta versión no guarda claves privadas ni envía transacciones.</div><div class="grid"><div class="panel"><h3>Simulate route</h3><p><input id="capital" type="number" value="10000"> <input id="spread" type="number" value="25"> <input id="minp" type="number" value="5"></p><button class="btn primary" id="simulate">Simulate</button><div id="simResult" style="margin-top:16px"></div></div><div class="panel"><h3>Risk guardrails</h3><div class="cards"><div class="card"><b>No private keys</b><p class="muted">Frontend and public API never receive signer secrets.</p></div><div class="card"><b>Realized ≠ estimated</b><p class="muted">The UI keeps both values separate.</p></div><div class="card"><b>Live disabled</b><p class="muted">Execution mode remains paper.</p></div></div></div></div></section></main></div><script src="config.js"></script><script>
+const API=(window.TRADEBOTHUB_CONFIG?.API_BASE_URL||'').replace(/\/$/,'');let state={stats:{},opps:[],market:[],txs:[],arbs:[],searchers:[]};const $=s=>document.querySelector(s),money=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:2}).format(Number(n||0)),short=s=>s?`${s.slice(0,6)}…${s.slice(-5)}`:'—';
+async function j(path,opt){const r=await fetch(API+path,opt);if(!r.ok)throw new Error(`${r.status}`);return r.json()}async function load(){try{const [stats,opps,market,txs,arbs,searchers]=await Promise.all([j('/api/stats'),j('/api/opportunities?limit=150'),j('/api/market?limit=250'),j('/api/transactions?limit=100'),j('/api/arbitrages?limit=100'),j('/api/searchers?limit=100')]);state={stats,opps:opps.items,market:market.items,txs:txs.items,arbs:arbs.items,searchers:searchers.items};render();$('#dot').className='dot live';$('#conn').textContent='Streaming';$('#mode').textContent=`${stats.mode} · ${stats.indexer}`}catch(e){$('#conn').textContent='API offline';$('#mode').textContent=String(e)}}
+function render(){const s=state.stats;$('#metrics').innerHTML=[['Markets',s.marketCount],['Opportunities',s.opportunityCount],['Indexed TX',s.transactionCount],['Arbitrages',s.arbitrageCount],['Est. Net',money(s.estimatedNetUsd)],['Realized',money(s.realizedNetUsd)]].map(x=>`<div class="metric"><small>${x[0]}</small><b>${x[1]??0}</b></div>`).join('');const rows=state.opps.slice(0,12);$('#oppMini').innerHTML=rows.map(o=>`<tr><td>${o.symbol}</td><td>${o.buyDex} → ${o.sellDex}</td><td>${o.spreadBps} bps</td><td>${money(o.capital)}</td><td class="${o.net>=0?'green':'red'}">${money(o.net)}</td><td><span class="pill">${o.status}</span></td></tr>`).join('')||'<tr><td colspan=6>No opportunities above threshold</td></tr>';renderOpps();const dex={};state.market.forEach(x=>dex[x.dex]=(dex[x.dex]||0)+x.liquidity);const max=Math.max(1,...Object.values(dex));$('#dexBars').innerHTML=Object.entries(dex).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([k,v])=>`<div class="bar"><span>${k} <b style="float:right">${money(v)}</b></span><div class="barline"><i style="width:${v/max*100}%"></i></div></div>`).join('');$('#txRows').innerHTML=state.txs.map(t=>`<tr><td>${t.slot??'—'}</td><td>${short(t.signature)}</td><td>${short(t.feePayer)}</td><td>${t.programIds?.length||0}</td><td>${(t.feeLamports||0)/1e9} SOL</td><td>${t.success?'success':'failed'}</td></tr>`).join('')||'<tr><td colspan=6>Configure Helius to stream transactions.</td></tr>';$('#arbRows').innerHTML=state.arbs.map(a=>`<tr><td>${a.slot??'—'}</td><td>${short(a.signature)}</td><td>${short(a.searcher)}</td><td>${a.dexProgramCount}</td><td>${a.type}</td><td>${a.confidence}%</td><td>${a.realizedNetUsd==null?'Unverified':money(a.realizedNetUsd)}</td></tr>`).join('')||'<tr><td colspan=7>No candidates indexed.</td></tr>';$('#searchCards').innerHTML=state.searchers.map(s=>`<div class="card"><span class="eyebrow">SEARCHER</span><h3>${short(s.wallet)}</h3><p>Candidates: <b>${s.candidates}</b></p><p>Transactions: <b>${s.transactions}</b></p><p class="muted">Last seen ${s.lastSeen||'—'}</p></div>`).join('')||'<div class="card">No searchers indexed yet.</div>'}
+function renderOpps(){const q=($('#q')?.value||'').toLowerCase();$('#oppRows').innerHTML=state.opps.filter(o=>JSON.stringify(o).toLowerCase().includes(q)).map(o=>`<tr><td>${new Date(o.detectedAt).toLocaleTimeString()}</td><td>${o.symbol}</td><td>${o.buyDex}</td><td>${o.sellDex}</td><td>${o.spreadBps} bps</td><td>${money(o.gross)}</td><td>${money(o.costs)}</td><td class="${o.net>=0?'green':'red'}">${money(o.net)}</td><td>${o.score}</td></tr>`).join('')}
+$('#nav').onclick=e=>{const b=e.target.closest('button');if(!b)return;document.querySelectorAll('.nav button,.view').forEach(x=>x.classList.remove('active'));b.classList.add('active');$('#'+b.dataset.v).classList.add('active');$('#title').textContent=b.textContent};$('#refresh').onclick=load;$('#q').oninput=renderOpps;$('#scan').onclick=()=>j('/api/admin/scan',{method:'POST'}).then(load);$('#simulate').onclick=async()=>{const r=await j('/api/simulate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({capital:+$('#capital').value,spreadBps:+$('#spread').value,minProfit:+$('#minp').value})});$('#simResult').innerHTML=`<div class="card"><b>${r.status.toUpperCase()}</b><p>Gross ${money(r.gross)} · Costs ${money(r.costs)} · Net <span class="${r.net>=0?'green':'red'}">${money(r.net)}</span></p><small class="muted">${r.warning}</small></div>`};
+load();setInterval(load,15000);if(API){const es=new EventSource(API+'/api/stream');es.addEventListener('snapshot',e=>{state.stats=JSON.parse(e.data);render()});es.onerror=()=>{$('#dot').className='dot'}}
+</script></body></html>
