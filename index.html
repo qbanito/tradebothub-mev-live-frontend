@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#07120d" />
+  <title>TradeBotHub MEV Intelligence</title>
+  <link rel="stylesheet" href="./assets/styles.css" />
+</head>
+<body>
+  <div class="noise"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><span class="brand-mark">T</span><div><b>TRADEBOTHUB</b><small>MEV INTELLIGENCE</small></div></div>
+    <nav id="nav">
+      <button class="nav-item active" data-view="overview">◫ <span>Overview</span></button>
+      <button class="nav-item" data-view="opportunities">⌁ <span>Live Opportunities</span></button>
+      <button class="nav-item" data-view="searchers">◎ <span>Searchers</span></button>
+      <button class="nav-item" data-view="dex">◈ <span>DEX Intelligence</span></button>
+      <button class="nav-item" data-view="validators">◇ <span>Validators</span></button>
+      <button class="nav-item" data-view="execution">▶ <span>Execution Console</span></button>
+      <button class="nav-item" data-view="risk">⛨ <span>Risk Center</span></button>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="system-row"><span class="dot" id="streamDot"></span><span>Data stream</span><b id="streamStatus">CONNECTING</b></div>
+      <div class="system-row"><span class="dot"></span><span>Executor</span><b>PAPER</b></div>
+      <div class="system-row"><span class="dot"></span><span>Network</span><b>SOLANA</b></div>
+    </div>
+  </aside>
+
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="top-left"><button class="icon-btn mobile-only" id="menuBtn">☰</button><div><span class="eyebrow">TRADEBOTHUB OS</span><h1 id="viewTitle">MEV Command Center</h1></div></div>
+      <div class="top-actions">
+        <div class="network-select"><span class="dot live"></span><select id="network"><option>Solana</option><option>Polygon</option><option>Base</option><option>Arbitrum</option></select></div>
+        <button class="ghost-btn" id="refreshBtn">↻ Refresh</button>
+        <button class="primary-btn" id="paperBtn">Paper Mode</button>
+      </div>
+    </header>
+
+    <section class="view active" id="view-overview">
+      <div class="hero-card">
+        <div><span class="eyebrow">LIVE MARKET INTELLIGENCE</span><h2>Observe where value is created before the market normalizes.</h2><p>Cross-DEX arbitrage, validator economics, route profitability and paper execution in one operating system.</p></div>
+        <div class="hero-signal"><span>Opportunity pulse</span><b id="pulseValue">87.4</b><small>High activity</small></div>
+      </div>
+      <div class="metric-grid" id="metricGrid"></div>
+      <div class="two-col">
+        <section class="panel chart-panel"><div class="panel-head"><div><span class="eyebrow">NET PNL</span><h3>Performance curve</h3></div><div class="range-tabs"><button class="active">24H</button><button>7D</button><button>30D</button></div></div><canvas id="pnlChart" height="120"></canvas></section>
+        <section class="panel"><div class="panel-head"><div><span class="eyebrow">MARKET SHARE</span><h3>Profit by DEX</h3></div></div><div id="dexShare" class="bars"></div></section>
+      </div>
+      <section class="panel"><div class="panel-head"><div><span class="eyebrow">REAL-TIME</span><h3>Opportunity stream</h3></div><button class="ghost-btn small" data-open="opportunities">View all</button></div><div class="table-wrap"><table><thead><tr><th>Route</th><th>Strategy</th><th>Size</th><th>Gross</th><th>Net</th><th>Confidence</th><th>Status</th></tr></thead><tbody id="overviewRows"></tbody></table></div></section>
+    </section>
+
+    <section class="view" id="view-opportunities">
+      <div class="filterbar"><input id="oppSearch" placeholder="Search token, DEX or route"/><select id="strategyFilter"><option value="all">All strategies</option><option>Cross-DEX</option><option>Triangular</option><option>Backrun</option><option>Stablecoin</option></select><select id="statusFilter"><option value="all">All status</option><option>Detected</option><option>Simulated</option><option>Executed</option><option>Rejected</option></select><button class="primary-btn" id="scanBtn">Start scan</button></div>
+      <div class="metric-grid compact" id="oppMetrics"></div>
+      <section class="panel"><div class="panel-head"><div><span class="eyebrow">OPPORTUNITY ENGINE</span><h3>Live routes</h3></div><span class="live-label"><span class="dot live"></span> streaming</span></div><div class="table-wrap"><table><thead><tr><th>Detected</th><th>Route</th><th>Capital</th><th>Gross</th><th>Costs</th><th>Net</th><th>Score</th><th></th></tr></thead><tbody id="opportunityRows"></tbody></table></div></section>
+    </section>
+
+    <section class="view" id="view-searchers">
+      <div class="metric-grid compact" id="searcherMetrics"></div>
+      <section class="panel"><div class="panel-head"><div><span class="eyebrow">WALLET INTELLIGENCE</span><h3>Top searchers</h3></div><input id="walletSearch" class="mini-input" placeholder="Filter wallet"/></div><div class="card-grid" id="searcherCards"></div></section>
+    </section>
+
+    <section class="view" id="view-dex">
+      <div class="metric-grid compact" id="dexMetrics"></div>
+      <div class="two-col"><section class="panel"><div class="panel-head"><div><span class="eyebrow">DEX RANKING</span><h3>Efficiency and opportunity</h3></div></div><div id="dexCards" class="stack"></div></section><section class="panel chart-panel"><div class="panel-head"><div><span class="eyebrow">FLOW</span><h3>Arbitrage volume</h3></div></div><canvas id="volumeChart" height="150"></canvas></section></div>
+    </section>
+
+    <section class="view" id="view-validators">
+      <div class="metric-grid compact" id="validatorMetrics"></div>
+      <section class="panel"><div class="panel-head"><div><span class="eyebrow">VALIDATOR ECONOMICS</span><h3>Blocks, tips and captured flow</h3></div></div><div class="table-wrap"><table><thead><tr><th>Validator</th><th>Slots</th><th>Arbitrages</th><th>Tips</th><th>Top DEX</th><th>Capture</th></tr></thead><tbody id="validatorRows"></tbody></table></div></section>
+    </section>
+
+    <section class="view" id="view-execution">
+      <div class="warning-banner"><b>Live market data enabled.</b> Execution remains paper-only until a signer, audited adapters and Jito are configured.</div>
+      <div class="execution-layout">
+        <section class="panel form-panel"><div class="panel-head"><div><span class="eyebrow">SIMULATOR</span><h3>Build execution</h3></div></div><label>Strategy<select id="execStrategy"><option>Cross-DEX</option><option>Triangular</option><option>Stablecoin</option><option>Backrun</option></select></label><div class="form-grid"><label>Capital (USDC)<input id="capitalInput" type="number" value="25000"/></label><label>Min profit (USDC)<input id="profitInput" type="number" value="25"/></label><label>Max slippage (%)<input id="slippageInput" type="number" value="0.35" step="0.05"/></label><label>Max tip (USDC)<input id="tipInput" type="number" value="18"/></label></div><label>Route<select id="routeInput"><option>Orca → Raydium</option><option>Meteora → Orca</option><option>Raydium → Phoenix → Orca</option><option>Jupiter → Meteora</option></select></label><button class="primary-btn full" id="simulateBtn">Simulate transaction</button><div class="simulation-result" id="simulationResult"><span>Ready</span><p>Configure the route and run a paper simulation.</p></div></section>
+        <section class="panel"><div class="panel-head"><div><span class="eyebrow">EXECUTION QUEUE</span><h3>Recent simulations</h3></div></div><div id="executionQueue" class="stack"></div></section>
+      </div>
+    </section>
+
+    <section class="view" id="view-risk">
+      <div class="risk-hero"><div><span class="eyebrow">SYSTEM GUARDRAILS</span><h2>Capital protection before execution.</h2><p>Limits shown below are active in the paper decision engine.</p></div><div class="risk-score"><span>Risk score</span><b>18</b><small>LOW</small></div></div>
+      <div class="risk-grid" id="riskCards"></div>
+      <section class="panel"><div class="panel-head"><div><span class="eyebrow">POLICY LOG</span><h3>Recent risk decisions</h3></div></div><div id="riskLog" class="stack"></div></section>
+    </section>
+  </main>
+
+  <div class="drawer" id="drawer"><div class="drawer-head"><div><span class="eyebrow">OPPORTUNITY DETAIL</span><h3 id="drawerTitle">Route</h3></div><button class="icon-btn" id="closeDrawer">×</button></div><div id="drawerBody"></div></div>
+  <div class="toast" id="toast"></div>
+  <script src="./config.js"></script>
+  <script src="./assets/app.js"></script>
+</body>
+</html>
