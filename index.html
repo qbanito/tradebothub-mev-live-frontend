@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0a131b">
-  <title>TradeBotHub MEV OS v3.4</title>
+  <title>TradeBotHub MEV OS v3.5</title>
   <style>
     :root {
       --bg: #081018;
@@ -449,7 +449,7 @@
     <aside>
       <div class="brand">
         TRADEBOTHUB
-        <small>MEV OS v3.4</small>
+        <small>MEV OS v3.5</small>
       </div>
 
       <div class="nav" id="nav">
@@ -459,6 +459,7 @@
         <button data-view="arbitrages">Arbitrages</button>
         <button data-view="searchers">Searchers</button>
         <button data-view="execution">Execution</button>
+        <button data-view="advanced">Advanced</button>
       </div>
 
       <div class="sidebar-card">
@@ -755,6 +756,83 @@
           </div>
         </div>
       </section>
+
+      <section class="view" id="advanced">
+        <div class="notice">
+          Stage 4 and 5 now expose a real planner for Base, Arbitrum, BNB Chain, Ethereum and the current Solana live path. Flash loans here are simulation and orchestration planning, not deployed atomic contracts yet.
+        </div>
+
+        <div class="layout two-col">
+          <div class="panel">
+            <div class="eyebrow">Stage 4</div>
+            <h2>Multi-chain planner</h2>
+
+            <div class="field-grid">
+              <label>
+                Opportunity
+                <select id="advancedOpportunitySelect"></select>
+              </label>
+              <label>
+                Capital USD
+                <input id="advancedCapital" type="number" min="25" step="1" value="10000">
+              </label>
+              <label>
+                Capital mode
+                <select id="advancedCapitalSource">
+                  <option value="auto">Auto by opportunity</option>
+                  <option value="flash">Prefer flash loan</option>
+                  <option value="own">Force own capital</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="actions">
+              <button class="btn" id="connectEvmBtn">Connect EVM wallet</button>
+              <button class="btn" id="loadAdvancedBtn">Refresh planner</button>
+              <button class="btn" id="planSelectedBtn">Plan selected</button>
+              <button class="btn primary" id="simulateAdvancedBtn">Simulate advanced</button>
+            </div>
+
+            <div class="stack" id="advancedPlanResult" style="margin-top:16px;"></div>
+          </div>
+
+          <div class="panel">
+            <div class="eyebrow">Stage 5</div>
+            <h2>Wallet and provider readiness</h2>
+            <div class="stack" id="evmWalletStatus" style="margin-bottom:12px;"></div>
+            <div class="stack" id="advancedStatus"></div>
+          </div>
+        </div>
+
+        <div class="layout two-col" style="margin-top:14px;">
+          <div class="panel">
+            <div class="eyebrow">Planner board</div>
+            <h2>Top actionable advanced routes</h2>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Chain</th>
+                    <th>Asset</th>
+                    <th>Mode</th>
+                    <th>Status</th>
+                    <th>Required</th>
+                    <th>Planner Net</th>
+                    <th>Provider</th>
+                  </tr>
+                </thead>
+                <tbody id="advancedPlanRows"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="eyebrow">Flash providers</div>
+            <h2>Mapped liquidity sources</h2>
+            <div class="cards" id="providerCards"></div>
+          </div>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -777,11 +855,18 @@
       tokens: [],
       capabilities: [],
       strategies: [],
+      advancedPlanner: { summary: {}, items: [] },
+      flashLoanProviders: [],
+      advancedPlan: null,
+      selectedAdvancedOpportunityId: null,
       validations: {},
       lastQuote: null,
       builtSwap: null,
       walletPublicKey: null,
-      walletLabel: null
+      walletLabel: null,
+      evmWalletAddress: null,
+      evmWalletLabel: null,
+      evmChainHex: null
     };
 
     const $ = (selector) => document.querySelector(selector);
@@ -861,6 +946,36 @@
       return null;
     }
 
+    function getEvmProvider() {
+      const injected = window.ethereum;
+      if (!injected) {
+        return null;
+      }
+      const candidates = injected.providers || [injected];
+      const provider = candidates.find((item) => item.isMetaMask)
+        || candidates.find((item) => item.isCoinbaseWallet)
+        || candidates[0];
+      const label = provider?.isMetaMask
+        ? "MetaMask"
+        : provider?.isCoinbaseWallet
+          ? "Coinbase Wallet"
+          : "EVM Wallet";
+      return provider ? { provider, label } : null;
+    }
+
+    function evmChainLabel(chainHex) {
+      const chainMap = {
+        "0x1": "Ethereum",
+        "0xa": "Optimism",
+        "0x38": "BNB Chain",
+        "0x89": "Polygon",
+        "0x2105": "Base",
+        "0xa4b1": "Arbitrum",
+        "0xa86a": "Avalanche"
+      };
+      return chainMap[String(chainHex || "").toLowerCase()] || "Unknown EVM chain";
+    }
+
     async function connectWallet() {
       const wallet = getWalletProvider();
       if (!wallet) {
@@ -891,6 +1006,46 @@
       renderExecutionStatus();
     }
 
+    async function connectEvmWallet() {
+      const wallet = getEvmProvider();
+      if (!wallet) {
+        throw new Error("No injected EVM wallet found. Install MetaMask or Coinbase Wallet.");
+      }
+      const accounts = await wallet.provider.request({ method: "eth_requestAccounts" });
+      const address = accounts?.[0];
+      const chainHex = await wallet.provider.request({ method: "eth_chainId" });
+      if (!address) {
+        throw new Error("EVM wallet connected but no address was returned.");
+      }
+      state.evmWalletAddress = address;
+      state.evmWalletLabel = wallet.label;
+      state.evmChainHex = chainHex;
+      renderAdvancedView();
+    }
+
+    function disconnectEvmWallet() {
+      state.evmWalletAddress = null;
+      state.evmWalletLabel = null;
+      state.evmChainHex = null;
+      renderAdvancedView();
+    }
+
+    function selectedAdvancedItem() {
+      const items = state.advancedPlanner?.items || [];
+      return items.find((item) => item.opportunityId === state.selectedAdvancedOpportunityId) || items[0] || null;
+    }
+
+    function advancedPreferFlashLoanValue() {
+      const value = $("#advancedCapitalSource")?.value || "auto";
+      if (value === "flash") {
+        return true;
+      }
+      if (value === "own") {
+        return false;
+      }
+      return undefined;
+    }
+
     function renderMetrics() {
       const items = [
         ["Markets", state.stats.marketCount || 0],
@@ -899,6 +1054,8 @@
         ["Scanner assets", state.stats.scannerAssetCount || 0],
         ["A/B quality", state.stats.highQualityOpportunityCount || 0],
         ["Ready routes", state.stats.readyOpportunityCount || 0],
+        ["Plan ready", state.stats.planReadyCount || 0],
+        ["Flash candidates", state.stats.flashLoanCandidateCount || 0],
         ["Est. Net", money(state.stats.estimatedNetUsd || 0)],
         ["Realized", money(state.stats.realizedNetUsd || 0)],
         ["Daily loss", money(state.stats.dailyLossUsd || 0)]
@@ -959,6 +1116,7 @@
         : `<div class="pill">All checks passed</div>`;
       const activeExecutors = (state.capabilities || []).filter((item) => item.status === "active").length;
       const flashLoanTracks = (state.strategies || []).filter((item) => item.flashLoan).length;
+      const flashProviders = state.flashLoanProviders.length;
 
       $("#readinessCards").innerHTML = `
         <div class="card">
@@ -974,7 +1132,7 @@
         <div class="card">
           <div class="eyebrow">Execution mesh</div>
           <h3>${activeExecutors} active / ${(state.capabilities || []).length || 0} tracked</h3>
-          <div class="muted">${flashLoanTracks} flash-loan strategy tracks mapped in roadmap</div>
+          <div class="muted">${flashLoanTracks} flash-loan strategy tracks | ${flashProviders} mapped providers</div>
         </div>
         <div class="card">
           <div class="eyebrow">Server signer</div>
@@ -1279,6 +1437,103 @@
       `;
     }
 
+    function renderAdvancedView() {
+      const planner = state.advancedPlanner || { summary: {}, items: [] };
+      const items = planner.items || [];
+      const currentSelected = state.selectedAdvancedOpportunityId;
+      const options = items.map((item) => `
+        <option value="${item.opportunityId}">${item.chainName} | ${item.symbol} | ${item.statusLabel}</option>
+      `).join("");
+      $("#advancedOpportunitySelect").innerHTML = options || `<option value="">No advanced routes</option>`;
+      if (items.length) {
+        const selected = items.some((item) => item.opportunityId === currentSelected)
+          ? currentSelected
+          : items[0].opportunityId;
+        state.selectedAdvancedOpportunityId = selected;
+        $("#advancedOpportunitySelect").value = selected;
+      } else {
+        state.selectedAdvancedOpportunityId = null;
+      }
+
+      const selected = selectedAdvancedItem();
+      $("#connectEvmBtn").textContent = state.evmWalletAddress ? "Disconnect EVM wallet" : "Connect EVM wallet";
+      $("#planSelectedBtn").disabled = !selected;
+      $("#simulateAdvancedBtn").disabled = !selected;
+
+      $("#evmWalletStatus").innerHTML = `
+        <div class="card">
+          <div class="eyebrow">EVM wallet</div>
+          <h3>${state.evmWalletAddress ? state.evmWalletLabel || "Connected" : "not connected"}</h3>
+          <div class="muted mono">${state.evmWalletAddress || "Use MetaMask or Coinbase Wallet in this browser."}</div>
+          <div class="muted">${state.evmChainHex ? evmChainLabel(state.evmChainHex) : "Planner mode only until wallet is connected."}</div>
+        </div>
+      `;
+
+      $("#advancedStatus").innerHTML = `
+        <div class="card">
+          <div class="eyebrow">Planner board</div>
+          <h3>${planner.summary?.planReadyCount || 0} ready / ${planner.summary?.totalCandidates || 0} tracked</h3>
+          <div class="muted">${planner.summary?.simReadyCount || 0} simulation-ready | ${planner.summary?.flashLoanReadyCount || 0} flash-loan candidates</div>
+        </div>
+        <div class="card">
+          <div class="eyebrow">Wallet mix</div>
+          <h3>${planner.summary?.evmWalletCount || 0} EVM routes</h3>
+          <div class="muted">${state.executionStatus?.evmWalletExecutionSupported ? "EVM wallet planner enabled" : "EVM wallet planner disabled by backend"}</div>
+        </div>
+        <div class="card">
+          <div class="eyebrow">Providers</div>
+          <h3>${state.flashLoanProviders.length} mapped</h3>
+          <div class="muted">${(state.flashLoanProviders || []).filter((item) => item.status === "mapped").length} mapped | ${(state.flashLoanProviders || []).filter((item) => item.status !== "mapped").length} research</div>
+        </div>
+      `;
+
+      const planCard = state.advancedPlan?.opportunityId === state.selectedAdvancedOpportunityId
+        ? state.advancedPlan
+        : selected;
+      if (planCard) {
+        const steps = (planCard.steps || []).map((item) => `<div><strong>${item.title}:</strong> ${item.detail}</div>`).join("");
+        const warnings = (planCard.warnings || []).length
+          ? (planCard.warnings || []).map((item) => `<div class="pill off">${item}</div>`).join("")
+          : `<div class="pill">No planner warnings</div>`;
+        $("#advancedPlanResult").innerHTML = `
+          <div class="card">
+            <div class="eyebrow">${planCard.chainName} ${planCard.capitalSource === "flash-loan" ? "flash-loan" : "own-capital"}</div>
+            <h3>${planCard.symbol} | ${planCard.statusLabel}</h3>
+            <p>Wallet: <strong>${planCard.walletType}</strong> | Mode: <strong>${planCard.recommendedMode}</strong></p>
+            <p>Required: <strong>${money(planCard.requiredCapitalUsd || 0)}</strong> | Planner net: <strong class="${Number(planCard.projectedNetUsd || 0) >= 0 ? "positive" : "negative"}">${money(planCard.projectedNetUsd || 0)}</strong></p>
+            <p>Min required net: <strong>${money(planCard.minRequiredNetUsd || 0)}</strong></p>
+            <p>Provider: <strong>${planCard.flashLoanProvider?.provider || "None mapped"}</strong></p>
+            <div class="stack">${steps || "<div>No execution steps generated.</div>"}</div>
+            <div class="stack" style="margin-top:12px;">${warnings}</div>
+          </div>
+        `;
+      } else {
+        $("#advancedPlanResult").innerHTML = `<div class="card">No advanced plan selected yet.</div>`;
+      }
+
+      $("#advancedPlanRows").innerHTML = items.length ? items.map((item) => `
+        <tr>
+          <td>${item.chainName}</td>
+          <td>${item.symbol}</td>
+          <td>${item.capitalSource}</td>
+          <td><span class="pill ${item.status === "research" ? "off" : item.status === "sim-ready" ? "warn" : ""}">${item.statusLabel}</span></td>
+          <td>${money(item.requiredCapitalUsd || 0)}</td>
+          <td class="${Number(item.projectedNetUsd || 0) >= 0 ? "positive" : "negative"}">${money(item.projectedNetUsd || 0)}</td>
+          <td>${item.flashLoanProvider?.provider || "-"}</td>
+        </tr>
+      `).join("") : `<tr><td colspan="7">No advanced routes ranked yet.</td></tr>`;
+
+      $("#providerCards").innerHTML = state.flashLoanProviders.length ? state.flashLoanProviders.map((item) => `
+        <div class="card">
+          <div class="eyebrow">${item.chainName}</div>
+          <h3>${item.provider}</h3>
+          <p>Fee <strong>${item.feeBps} bps</strong> | Max <strong>${money(item.maxBorrowUsd || 0)}</strong></p>
+          <div class="muted">${item.status} | ${item.settlement}</div>
+          <div class="muted">${item.notes}</div>
+        </div>
+      `).join("") : `<div class="card">No flash-loan providers loaded.</div>`;
+    }
+
     function renderAll() {
       renderMetrics();
       renderOverviewOpps();
@@ -1295,6 +1550,7 @@
       renderTradeLedger();
       populateTokenSelects();
       renderStrategyCards();
+      renderAdvancedView();
     }
 
     async function loadOpportunityValidations() {
@@ -1340,7 +1596,9 @@
           riskStatus,
           tokens,
           capabilities,
-          strategies
+          strategies,
+          advancedPlanner,
+          flashLoanProviders
         ] = await Promise.all([
           api("/api/stats"),
           api("/api/opportunities?limit=250"),
@@ -1354,7 +1612,9 @@
           api("/api/risk/status"),
           api("/api/tokens"),
           api("/api/execution/capabilities"),
-          api("/api/strategies")
+          api("/api/strategies"),
+          api("/api/execution/planner?limit=12"),
+          api("/api/flash-loans/providers")
         ]);
 
         state.stats = stats;
@@ -1370,7 +1630,12 @@
         state.tokens = tokens.items || [];
         state.capabilities = capabilities.items || [];
         state.strategies = strategies.items || [];
+        state.advancedPlanner = advancedPlanner || { summary: {}, items: [] };
+        state.flashLoanProviders = flashLoanProviders.items || [];
         state.validations = {};
+        if (!state.selectedAdvancedOpportunityId && state.advancedPlanner.items?.length) {
+          state.selectedAdvancedOpportunityId = state.advancedPlanner.items[0].opportunityId;
+        }
 
         $("#statusDot").className = "status-dot live";
         $("#statusLabel").textContent = "Connected";
@@ -1382,6 +1647,28 @@
         $("#statusDot").className = "status-dot offline";
         $("#statusLabel").textContent = "API offline";
         $("#statusMeta").textContent = String(error.message || error);
+      }
+    }
+
+    async function loadAdvancedPlanner() {
+      try {
+        const params = new URLSearchParams();
+        params.set("limit", "12");
+        params.set("capitalUsd", String(Number($("#advancedCapital").value || 10000)));
+        const preferFlashLoan = advancedPreferFlashLoanValue();
+        if (preferFlashLoan != null) {
+          params.set("preferFlashLoan", String(preferFlashLoan));
+        }
+        const payload = await api(`/api/execution/planner?${params.toString()}`);
+        state.advancedPlanner = payload || { summary: {}, items: [] };
+        if (state.advancedPlanner.items?.length) {
+          state.selectedAdvancedOpportunityId = state.advancedPlanner.items[0].opportunityId;
+        } else {
+          state.selectedAdvancedOpportunityId = null;
+        }
+        renderAdvancedView();
+      } catch (error) {
+        $("#advancedPlanResult").innerHTML = `<div class="card"><strong>Planner failed</strong><div class="muted">${error.message || String(error)}</div></div>`;
       }
     }
 
@@ -1556,6 +1843,68 @@
       }
     }
 
+    async function planAdvancedOpportunity() {
+      try {
+        const opportunityId = $("#advancedOpportunitySelect").value;
+        if (!opportunityId) {
+          throw new Error("No advanced opportunity is selected.");
+        }
+        const preferFlashLoan = advancedPreferFlashLoanValue();
+        const body = {
+          opportunityId,
+          capitalUsd: Number($("#advancedCapital").value || 10000)
+        };
+        if (preferFlashLoan != null) {
+          body.preferFlashLoan = preferFlashLoan;
+        }
+        const payload = await api("/api/opportunities/advanced-plan", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        state.advancedPlan = payload.plan;
+        renderAdvancedView();
+      } catch (error) {
+        $("#advancedPlanResult").innerHTML = `<div class="card"><strong>Advanced plan failed</strong><div class="muted">${error.message || String(error)}</div></div>`;
+      }
+    }
+
+    async function simulateAdvancedOpportunity() {
+      try {
+        const opportunityId = $("#advancedOpportunitySelect").value;
+        if (!opportunityId) {
+          throw new Error("No advanced opportunity is selected.");
+        }
+        const preferFlashLoan = advancedPreferFlashLoanValue();
+        const body = {
+          opportunityId,
+          capitalUsd: Number($("#advancedCapital").value || 10000)
+        };
+        if (preferFlashLoan != null) {
+          body.preferFlashLoan = preferFlashLoan;
+        }
+        const payload = await api("/api/opportunities/advanced-simulate", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        state.advancedPlan = payload.plan;
+        $("#advancedPlanResult").innerHTML = `
+          <div class="card">
+            <div class="eyebrow">Advanced simulation</div>
+            <h3>${payload.plan.symbol} on ${payload.plan.chainName}</h3>
+            <p>Status: <strong>${payload.entry.status}</strong></p>
+            <p>Capital source: <strong>${payload.plan.capitalSource}</strong></p>
+            <p>Simulated net: <strong class="${Number(payload.entry.realizedNetUsd || 0) >= 0 ? "positive" : "negative"}">${money(payload.entry.realizedNetUsd || 0)}</strong></p>
+            <p>Provider: <strong>${payload.plan.flashLoanProvider?.provider || "None"}</strong></p>
+          </div>
+        `;
+        await loadAll();
+      } catch (error) {
+        $("#advancedPlanResult").innerHTML = `<div class="card"><strong>Advanced simulation failed</strong><div class="muted">${error.message || String(error)}</div></div>`;
+      }
+    }
+
     async function runSimulation() {
       try {
         const payload = await api("/api/simulate", {
@@ -1610,6 +1959,25 @@
       }
     });
     $("#simulateBtn").addEventListener("click", runSimulation);
+    $("#connectEvmBtn").addEventListener("click", async () => {
+      try {
+        if (state.evmWalletAddress) {
+          disconnectEvmWallet();
+          return;
+        }
+        await connectEvmWallet();
+      } catch (error) {
+        $("#advancedPlanResult").innerHTML = `<div class="card"><strong>EVM wallet failed</strong><div class="muted">${error.message || String(error)}</div></div>`;
+      }
+    });
+    $("#loadAdvancedBtn").addEventListener("click", loadAdvancedPlanner);
+    $("#planSelectedBtn").addEventListener("click", planAdvancedOpportunity);
+    $("#simulateAdvancedBtn").addEventListener("click", simulateAdvancedOpportunity);
+    $("#advancedOpportunitySelect").addEventListener("change", () => {
+      state.selectedAdvancedOpportunityId = $("#advancedOpportunitySelect").value || null;
+      renderAdvancedView();
+    });
+    $("#advancedCapitalSource").addEventListener("change", renderAdvancedView);
 
     loadAll();
     setInterval(loadAll, 15000);
