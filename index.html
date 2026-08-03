@@ -48,12 +48,47 @@
         linear-gradient(180deg, #071018, #06111a 50%, #040b10);
       font: 14px/1.55 "Space Grotesk", sans-serif;
       letter-spacing: 0.01em;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      inset: auto;
+      pointer-events: none;
+      z-index: 0;
+      filter: blur(22px);
+      opacity: 0.48;
+      animation: drift 16s ease-in-out infinite alternate;
+    }
+
+    body::before {
+      top: 110px;
+      right: 8%;
+      width: 280px;
+      height: 280px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(111, 208, 255, 0.18), rgba(111, 208, 255, 0));
+    }
+
+    body::after {
+      left: 6%;
+      bottom: 10%;
+      width: 320px;
+      height: 320px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(98, 244, 181, 0.16), rgba(98, 244, 181, 0));
+      animation-duration: 19s;
     }
 
     .app {
       display: grid;
       grid-template-columns: 282px 1fr;
       min-height: 100vh;
+      position: relative;
+      z-index: 1;
     }
 
     aside {
@@ -160,6 +195,17 @@
         linear-gradient(180deg, rgba(11, 24, 35, 0.94), rgba(9, 19, 28, 0.92)),
         radial-gradient(circle at top right, rgba(61, 142, 255, 0.18), transparent 28%);
       box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .topbar::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(115deg, transparent 22%, rgba(255, 255, 255, 0.05) 38%, transparent 54%);
+      transform: translateX(-38%);
+      animation: sheen 7.8s linear infinite;
+      pointer-events: none;
     }
 
     .eyebrow {
@@ -230,6 +276,26 @@
       display: block;
       margin-top: 8px;
       font-size: 20px;
+    }
+
+    .hero-signal-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(120px, 0.8fr);
+      gap: 12px;
+      align-items: end;
+    }
+
+    .signal-visual {
+      padding: 12px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.025);
+    }
+
+    .signal-visual strong {
+      display: block;
+      margin-top: 6px;
+      font-size: 15px;
     }
 
     .top-actions {
@@ -305,6 +371,7 @@
       position: relative;
       overflow: hidden;
       padding: 18px;
+      transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
     }
 
     .metric::after {
@@ -314,6 +381,15 @@
       height: 2px;
       border-radius: 999px;
       background: linear-gradient(90deg, rgba(111, 208, 255, 0), rgba(111, 208, 255, 0.8), rgba(98, 244, 181, 0.9), rgba(98, 244, 181, 0));
+    }
+
+    .metric:hover,
+    .spotlight-card:hover,
+    .opportunity-card:hover,
+    .card:hover {
+      transform: translateY(-3px);
+      border-color: var(--line-strong);
+      box-shadow: 0 22px 38px rgba(0, 0, 0, 0.2);
     }
 
     .metric small,
@@ -329,6 +405,17 @@
       font-size: 28px;
       line-height: 1;
       letter-spacing: -0.04em;
+    }
+
+    .metric-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .metric-visual {
+      margin-top: 12px;
     }
 
     .layout {
@@ -360,6 +447,30 @@
     .card {
       padding: 16px;
       border-radius: 20px;
+    }
+
+    .icon-chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: linear-gradient(135deg, rgba(111, 208, 255, 0.18), rgba(98, 244, 181, 0.1));
+      color: var(--text);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      flex: 0 0 auto;
+    }
+
+    .icon-chip svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
 
     .table-wrap {
@@ -655,6 +766,73 @@
       margin-top: 0;
     }
 
+    .sparkline {
+      width: 100%;
+      min-height: 42px;
+    }
+
+    .sparkline svg {
+      width: 100%;
+      height: 42px;
+      display: block;
+    }
+
+    .sparkline .spark-fill {
+      opacity: 0.18;
+    }
+
+    .sparkline .spark-line {
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 2.25;
+    }
+
+    .spotlight-chart,
+    .opportunity-chart {
+      margin-top: 14px;
+    }
+
+    .floating-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.035);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .floating-badge svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex: 0 0 auto;
+    }
+
+    @keyframes drift {
+      from {
+        transform: translate3d(0, 0, 0) scale(1);
+      }
+      to {
+        transform: translate3d(18px, -22px, 0) scale(1.08);
+      }
+    }
+
+    @keyframes sheen {
+      from {
+        transform: translateX(-38%);
+      }
+      to {
+        transform: translateX(130%);
+      }
+    }
+
     @media (max-width: 1200px) {
       .metrics {
         grid-template-columns: repeat(3, minmax(120px, 1fr));
@@ -702,6 +880,10 @@
     @media (max-width: 720px) {
       .toolbar-grid {
         grid-template-columns: 1fr 1fr;
+      }
+
+      .hero-signal-grid {
+        grid-template-columns: 1fr;
       }
     }
 
@@ -1344,6 +1526,102 @@
       return Number(value || 0) >= 0 ? "value-positive" : "value-negative";
     }
 
+    function iconSvg(name) {
+      const icons = {
+        pulse: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l2.2-4 3.2 9 2.2-5H21"/></svg>',
+        wallet: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h15a3 3 0 0 1 3 3v7H6a3 3 0 0 1-3-3V7Z"/><path d="M3 10V7a2 2 0 0 1 2-2h13"/><path d="M17 12h4"/></svg>',
+        route: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8 7.5c2.5 1 4 2.5 5 5"/><path d="M9 18H7a3 3 0 0 1-3-3v-2"/><path d="M15 6h2a3 3 0 0 1 3 3v2"/></svg>',
+        shield: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-2.7 7.8-7 10-4.3-2.2-7-5.5-7-10V6l7-3Z"/><path d="m9.5 12 1.7 1.7 3.5-3.7"/></svg>',
+        grid: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg>',
+        spark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 2 1.8 5.2L20 9l-5.2 1.8L13 16l-1.8-5.2L6 9l5.2-1.8L13 2Z"/></svg>',
+        depth: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18V8"/><path d="M10 18V5"/><path d="M16 18v-8"/><path d="M22 18V11"/></svg>',
+        radar: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12 19 5"/><path d="M5 19a10 10 0 1 1 14 0"/><path d="M8 16a6 6 0 1 1 8 0"/></svg>',
+        flash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 5 13h5l-1 9 8-11h-5l1-9Z"/></svg>',
+      };
+      return icons[name] || icons.grid;
+    }
+
+    function iconChip(name) {
+      return `<span class="icon-chip">${iconSvg(name)}</span>`;
+    }
+
+    function sparklineSvg(values, options = {}) {
+      const points = (values || []).map((value) => Number(value || 0));
+      if (!points.length) {
+        return "";
+      }
+      const width = 220;
+      const height = 42;
+      const max = Math.max(...points, 1);
+      const min = Math.min(...points, 0);
+      const range = Math.max(max - min, 1);
+      const coords = points.map((value, index) => {
+        const x = points.length === 1 ? width / 2 : (index / (points.length - 1)) * width;
+        const y = height - (((value - min) / range) * (height - 8) + 4);
+        return [Number(x.toFixed(2)), Number(y.toFixed(2))];
+      });
+      const line = coords.map(([x, y]) => `${x},${y}`).join(" ");
+      const fill = `${coords[0][0]},${height} ${line} ${coords[coords.length - 1][0]},${height}`;
+      const stroke = options.stroke || "url(#sparkStroke)";
+      const fillColor = options.fill || "url(#sparkFill)";
+      return `
+        <div class="sparkline">
+          <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <linearGradient id="sparkStroke" x1="0%" x2="100%" y1="0%" y2="0%">
+                <stop offset="0%" stop-color="#6fd0ff"></stop>
+                <stop offset="100%" stop-color="#62f4b5"></stop>
+              </linearGradient>
+              <linearGradient id="sparkFill" x1="0%" x2="0%" y1="0%" y2="100%">
+                <stop offset="0%" stop-color="rgba(111,208,255,0.35)"></stop>
+                <stop offset="100%" stop-color="rgba(111,208,255,0)"></stop>
+              </linearGradient>
+            </defs>
+            <polygon class="spark-fill" fill="${fillColor}" points="${fill}"></polygon>
+            <polyline class="spark-line" fill="none" stroke="${stroke}" points="${line}"></polyline>
+          </svg>
+        </div>
+      `;
+    }
+
+    function opportunitySignal(item) {
+      return [
+        Number(item.costs || 0),
+        Number(item.gross || 0) * 0.56,
+        Number(item.gross || 0),
+        Number(item.net || 0),
+        Number(item.capital || 0) / 120
+      ];
+    }
+
+    function metricVisual(label) {
+      const visuals = {
+        "Live opportunities": [state.stats.scannerAssetCount || 0, state.stats.highQualityOpportunityCount || 0, state.stats.readyOpportunityCount || 0, state.stats.opportunityCount || 0],
+        "Scanner markets": [state.stats.chainCount || 0, state.stats.scannerAssetCount || 0, state.stats.marketCount || 0],
+        "Ready routes": [state.stats.highQualityOpportunityCount || 0, state.stats.planReadyCount || 0, state.stats.readyOpportunityCount || 0],
+        "A/B quality": [state.stats.planReadyCount || 0, state.stats.flashLoanCandidateCount || 0, state.stats.highQualityOpportunityCount || 0],
+        "Est. net": [state.stats.realizedNetUsd || 0, state.stats.estimatedNetUsd || 0, (state.stats.estimatedNetUsd || 0) - (state.stats.dailyLossUsd || 0)],
+        "Realized": [0, state.stats.realizedNetUsd || 0, (state.stats.realizedNetUsd || 0) - (state.stats.dailyLossUsd || 0)],
+        "Shadow accuracy": [state.stats.shadowPendingCount || 0, state.stats.shadowEvaluatedCount || 0, state.stats.shadowAccuracyPct || 0],
+        "Live executors": [state.stats.executorCount || 0, state.stats.liveExecutorCount || 0, state.stats.readyOpportunityCount || 0],
+      };
+      return sparklineSvg(visuals[label] || [0, 1, 0.5]);
+    }
+
+    function metricIconName(label) {
+      const names = {
+        "Live opportunities": "radar",
+        "Scanner markets": "grid",
+        "Ready routes": "route",
+        "A/B quality": "spark",
+        "Est. net": "flash",
+        "Realized": "wallet",
+        "Shadow accuracy": "pulse",
+        "Live executors": "shield",
+      };
+      return names[label] || "grid";
+    }
+
     function filteredOpportunities() {
       const searchValue = ($("#oppSearch")?.value || "").toLowerCase();
       const chainFilter = $("#oppChainFilter")?.value || "all";
@@ -1364,27 +1642,42 @@
       const heroState = status.canExecuteLive
         ? "Guarded live lane available"
         : "Elite scanner, guarded execution";
+      const pulseValues = state.opportunities.slice(0, 8).map((item) => Number(item.net || 0));
 
       $("#heroNarrative").textContent = assessment.summary;
       $("#heroSignal").innerHTML = `
-        <div class="eyebrow">System pulse</div>
-        <h3>${heroState}</h3>
-        <div class="muted">Mode ${modeLabel} | ${assessment.blockers[0] || "No immediate blocker reported."}</div>
+        <div class="hero-signal-grid">
+          <div>
+            <div class="eyebrow">System pulse</div>
+            <h3>${heroState}</h3>
+            <div class="muted">Mode ${modeLabel} | ${assessment.blockers[0] || "No immediate blocker reported."}</div>
+          </div>
+          <div class="signal-visual">
+            ${iconChip("pulse")}
+            <strong>Market rhythm</strong>
+            <div class="muted">Top opportunity net cadence</div>
+          </div>
+        </div>
+        ${sparklineSvg(pulseValues.length ? pulseValues : [0, 1, 0.3, 1.1])}
       `;
       $("#heroMiniGrid").innerHTML = `
         <div class="hero-mini-card">
+          ${iconChip("flash")}
           <small class="muted">Best live route</small>
           <strong class="${numericToneClass(bestNet)}">${topOpportunity ? money(bestNet) : "-"}</strong>
         </div>
         <div class="hero-mini-card">
+          ${iconChip("spark")}
           <small class="muted">A/B quality</small>
           <strong>${state.stats.highQualityOpportunityCount || 0}</strong>
         </div>
         <div class="hero-mini-card">
+          ${iconChip("route")}
           <small class="muted">Ready routes</small>
           <strong>${state.stats.readyOpportunityCount || 0}</strong>
         </div>
         <div class="hero-mini-card">
+          ${iconChip("shield")}
           <small class="muted">Live executors</small>
           <strong>${liveExecutors}</strong>
         </div>
@@ -1698,9 +1991,13 @@
       ];
       $("#metrics").innerHTML = items.map(([label, value, detail]) => `
         <div class="metric">
-          <small>${label}</small>
+          <div class="metric-head">
+            <small>${label}</small>
+            ${iconChip(metricIconName(label))}
+          </div>
           <strong>${value}</strong>
           <div class="muted" style="margin-top:8px;">${detail}</div>
+          <div class="metric-visual">${metricVisual(label)}</div>
         </div>
       `).join("");
     }
@@ -1715,10 +2012,14 @@
               <h3>${item.symbol}</h3>
               <p>${item.buyDex} -> ${item.sellDex}</p>
             </div>
-            <span class="pill ${qualityPillClass(item)}">${item.qualityTier} ${item.qualityScore}</span>
+            <div style="display:grid; gap:10px; justify-items:end;">
+              ${iconChip(item.chainId === "solana" ? "wallet" : "route")}
+              <span class="pill ${qualityPillClass(item)}">${item.qualityTier} ${item.qualityScore}</span>
+            </div>
           </div>
           <div class="large-value ${numericToneClass(item.net)}" style="margin-top:18px;">${money(item.net)}</div>
           <p style="margin-top:8px;">Modeled net after costs with spread <strong>${item.spreadBps} bps</strong>.</p>
+          <div class="spotlight-chart">${sparklineSvg(opportunitySignal(item))}</div>
           <div class="spotlight-kpis">
             <div class="mini-stat">
               <small class="muted">Gross</small>
@@ -2169,13 +2470,18 @@
               <h3>${item.symbol}</h3>
               <p>${item.buyDex} -> ${item.sellDex}</p>
             </div>
-            <span class="pill ${qualityPillClass(item)}">${item.qualityTier} ${item.qualityScore}</span>
+            <div style="display:grid; gap:10px; justify-items:end;">
+              ${iconChip(item.chainId === "solana" ? "wallet" : item.chainId === "polygon" ? "flash" : "radar")}
+              <span class="pill ${qualityPillClass(item)}">${item.qualityTier} ${item.qualityScore}</span>
+            </div>
           </div>
           <div class="opportunity-meta">
+            <span class="floating-badge">${iconSvg("pulse")} Live signal</span>
             <span class="pill">${executionLabel(item)}</span>
             <span class="pill ${validationPillClass(validationFor(item), item)}">${validationLabel(validationFor(item), item)}</span>
             <span class="pill ${item.status === "watch" ? "warn" : ""}">${item.status}</span>
           </div>
+          <div class="opportunity-chart">${sparklineSvg(opportunitySignal(item))}</div>
           <div class="opportunity-kpis">
             <div class="mini-stat">
               <small class="muted">Net</small>
