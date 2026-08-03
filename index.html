@@ -2132,7 +2132,15 @@
 
     async function api(path, options) {
       const response = await fetch(API + path, options);
-      const payload = await response.json().catch(() => ({}));
+      const raw = await response.text();
+      let payload = {};
+      if (raw) {
+        try {
+          payload = JSON.parse(raw);
+        } catch (error) {
+          payload = { error: raw };
+        }
+      }
       if (!response.ok) {
         throw new Error(payload.error || String(response.status));
       }
