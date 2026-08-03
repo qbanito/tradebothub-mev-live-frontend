@@ -363,6 +363,20 @@
       gap: 12px;
     }
 
+    .guide-list {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+    }
+
+    .guide-list li + li {
+      margin-top: 8px;
+    }
+
+    .guide-list strong {
+      color: var(--text);
+    }
+
     .mono {
       font-family: "IBM Plex Mono", monospace;
     }
@@ -454,6 +468,7 @@
 
       <div class="nav" id="nav">
         <button class="active" data-view="overview">Overview</button>
+        <button data-view="guide">Guide</button>
         <button data-view="opportunities">Opportunities</button>
         <button data-view="transactions">Transactions</button>
         <button data-view="arbitrages">Arbitrages</button>
@@ -488,6 +503,10 @@
       </div>
 
       <section class="view active" id="overview">
+        <div class="notice" id="profitabilityBanner">
+          Loading operating assessment...
+        </div>
+
         <div class="metrics" id="metrics"></div>
 
         <div class="layout two-col">
@@ -544,6 +563,42 @@
                 <tbody id="overviewExecs"></tbody>
               </table>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="guide">
+        <div class="notice" id="guideVerdictBanner">
+          Loading guide...
+        </div>
+
+        <div class="cards" id="guideSummaryCards"></div>
+
+        <div class="layout two-col" style="margin-top:14px;">
+          <div class="panel">
+            <div class="eyebrow">Page guide</div>
+            <h2>What each page is for</h2>
+            <div class="cards" id="guidePageCards" style="grid-template-columns:repeat(2, minmax(0, 1fr));"></div>
+          </div>
+
+          <div class="panel">
+            <div class="eyebrow">Operator workflow</div>
+            <h2>How to use the platform</h2>
+            <div class="stack" id="guideWorkflow"></div>
+          </div>
+        </div>
+
+        <div class="layout two-col" style="margin-top:14px;">
+          <div class="panel">
+            <div class="eyebrow">Profitability gates</div>
+            <h2>What must be true before live</h2>
+            <div class="stack" id="guideChecklist"></div>
+          </div>
+
+          <div class="panel">
+            <div class="eyebrow">Reality check</div>
+            <h2>How to read the numbers correctly</h2>
+            <div class="stack" id="guideReality"></div>
           </div>
         </div>
       </section>
@@ -1388,6 +1443,307 @@
       `).join("") : `<tr><td colspan="4">No execution history yet.</td></tr>`;
     }
 
+    function uniqueStrings(items) {
+      return [...new Set((items || []).filter(Boolean).map((item) => String(item).trim()))];
+    }
+
+    function operatingAssessment() {
+      const status = state.executionStatus || {};
+      const realizedNetUsd = Number(state.stats.realizedNetUsd || 0);
+      const dailyLossUsd = Number(state.stats.dailyLossUsd || 0);
+      const highQualityCount = Number(state.stats.highQualityOpportunityCount || 0);
+      const readyRouteCount = Number(state.stats.readyOpportunityCount || 0);
+      const activeExecutors = (state.capabilities || []).filter((item) => item.status === "active").length;
+      const liveExecutors = (state.capabilities || []).filter((item) => item.executeSupport && item.liveReady).length;
+      const recentFailures = (state.tradeLedger || []).filter((item) => !item.success).slice(0, 5);
+      const sawRateLimit = recentFailures.some((item) => String(item.failureReason || "").toLowerCase().includes("rate limit"));
+      const flashReady = (state.strategies || []).some((item) => item.flashLoan && item.stage === "active");
+      const polygonDeployment = executorDeployment("polygon");
+
+      const blockers = uniqueStrings([
+        ...(status.reasons || []),
+        status.canExecuteLive ? null : "The backend still cannot execute live from the server.",
+        realizedNetUsd > 0 ? null : "There is no positive realized live PnL track record yet.",
+        sawRateLimit ? "Quote or RPC rate limits are still interrupting route validation." : null,
+        flashReady ? null : "Flash-loan and atomic strategies are still planning or research, not production.",
+        liveExecutors > 1 ? null : "Most chains are still scanner or planner coverage, not live execution coverage.",
+        highQualityCount > 0 ? null : "The scanner is not currently surfacing enough A/B quality routes."
+      ]);
+
+      const strengths = uniqueStrings([
+        highQualityCount > 0 ? `${highQualityCount} A/B quality opportunities are being ranked right now.` : null,
+        readyRouteCount > 0 ? `${readyRouteCount} routes already line up with an executor path.` : null,
+        activeExecutors > 0 ? `${activeExecutors} executor track(s) are already active in the registry.` : null,
+        polygonDeployment ? "Polygon already has a deployed executor contract recorded in the platform." : null
+      ]);
+
+      const verdict = status.canExecuteLive && realizedNetUsd > 0 && !sawRateLimit && flashReady && liveExecutors > 1
+        ? "Guarded live beta: close to controlled production, but still needs discipline."
+        : "Not ready yet to be treated as a reliable money-making machine.";
+      const stage = status.canExecuteLive
+        ? realizedNetUsd > 0 ? "Guarded live beta" : "Execution exists but profit proof is missing"
+        : "Scanner and planner stage";
+      const summary = status.canExecuteLive
+        ? "The system can prepare or route some executions, but it still lacks enough proven live capture to justify aggressive deployment."
+        : "The platform is strong as a scanner, planner, and wallet-assisted console, but server-live execution is intentionally blocked and multi-chain routing is still being wired.";
+
+      const nextSteps = [
+        {
+          label: "Turn the current Solana wallet path into a repeatable live lane",
+          detail: "Remove quote-provider rate-limit failures, test successful wallet build + send, and confirm realized PnL after settlement."
+        },
+        {
+          label: "Prove real capture with a small audited live track record",
+          detail: "A few positive executions with fees, slippage, and settlement all measured are more valuable than hundreds of estimated opportunities."
+        },
+        {
+          label: "Finish at least one EVM execution lane end-to-end",
+          detail: "Polygon has a deployed contract, but build, sign, broadcast, and post-trade reporting still need to be complete from the frontend."
+        },
+        {
+          label: "Promote flash-loan and atomic paths only after settlement works",
+          detail: "Flash loans multiply complexity. First prove the simplest profitable route, then layer atomic capital efficiency on top."
+        }
+      ];
+
+      const gates = [
+        {
+          label: "Live execution flags and signer are enabled",
+          ok: Boolean(status.canExecuteLive),
+          detail: status.canExecuteLive
+            ? "The backend reports live execution readiness."
+            : "Render is still reporting blockers such as disabled live mode or missing signer."
+        },
+        {
+          label: "Wallet route executes without quote or provider failures",
+          ok: !sawRateLimit,
+          detail: sawRateLimit
+            ? "Recent demo validation still failed because the quote provider returned a rate-limit response."
+            : "Recent ledger entries are not showing quote-provider failures."
+        },
+        {
+          label: "Realized PnL is positive in real executions",
+          ok: realizedNetUsd > 0,
+          detail: realizedNetUsd > 0
+            ? `The platform reports realized net ${money(realizedNetUsd)}.`
+            : "Most of the visible net values are still estimated or simulated, not realized capture."
+        },
+        {
+          label: "At least two chains are truly executable, not just discoverable",
+          ok: liveExecutors > 1,
+          detail: liveExecutors > 1
+            ? `${liveExecutors} chains report live-ready executors.`
+            : `Only ${liveExecutors} chain reports live-ready execution today.`
+        },
+        {
+          label: "Flash-loan and atomic workflows are settlement-ready",
+          ok: flashReady,
+          detail: flashReady
+            ? "At least one flash-loan strategy is marked active."
+            : "Flash-loan orchestration is still presented as planned or research."
+        }
+      ];
+
+      return {
+        verdict,
+        stage,
+        summary,
+        blockers,
+        strengths,
+        nextSteps,
+        gates,
+        metrics: {
+          highQualityCount,
+          readyRouteCount,
+          liveExecutors,
+          realizedNetUsd,
+          dailyLossUsd
+        }
+      };
+    }
+
+    function renderGuide() {
+      const assessment = operatingAssessment();
+      const recentLedger = (state.tradeLedger || []).slice(0, 3);
+      const pageCards = [
+        {
+          name: "Overview",
+          use: "Quick health check for scanner breadth, liquidity, readiness, and recent execution activity.",
+          caution: "Est. Net is opportunity math, not guaranteed profit."
+        },
+        {
+          name: "Guide",
+          use: "Operational briefing so an operator understands what every page means before risking money.",
+          caution: "Use this view to separate estimated edge from proven edge."
+        },
+        {
+          name: "Opportunities",
+          use: "Where routes are ranked and filtered by spread, quality, chain, execution support, and validation state.",
+          caution: "\"candidate\" can still mean discovery-only. \"ready\" still needs quote validation and successful settlement."
+        },
+        {
+          name: "Transactions",
+          use: "Raw transaction feed for fees, programs touched, and execution forensics.",
+          caution: "A transaction existing does not automatically mean the trade made money."
+        },
+        {
+          name: "Arbitrages",
+          use: "Decoded or inferred arbitrage candidates for post-trade analysis.",
+          caution: "Realized profit should stay unverified until valuation and settlement are confirmed."
+        },
+        {
+          name: "Searchers",
+          use: "Competitor or searcher visibility once the indexer is capturing enough wallet activity.",
+          caution: "This section is only as strong as the indexing backend feeding it."
+        },
+        {
+          name: "Execution",
+          use: "Closest thing to a live console: connect wallet, request quote, build transaction, send, or run demo.",
+          caution: "Today this view is Solana-first for direct signing. Backend live mode is still guarded."
+        },
+        {
+          name: "Advanced",
+          use: "Planner for multi-chain, flash-loan mapping, Polygon executor status, and shadow-execution calibration.",
+          caution: "Most non-Solana routes here are planning and simulation layers, not finished production execution."
+        }
+      ];
+      const workflow = [
+        {
+          title: "1. Start in Overview",
+          detail: "Confirm the system is connected, check the readiness banner, and compare estimated net versus realized performance."
+        },
+        {
+          title: "2. Inspect Opportunities",
+          detail: "Prioritize A/B quality routes with executor support and then validate the route before trusting the estimate."
+        },
+        {
+          title: "3. Move to Execution",
+          detail: "Use wallet quote, build, and send for supported Solana routes. Keep demos for guardrail checks, not for profitability proof."
+        },
+        {
+          title: "4. Use Advanced for expansion",
+          detail: "Planner, Polygon executor status, and flash-loan maps belong here, but they should not be confused with live atomic execution yet."
+        },
+        {
+          title: "5. Audit results after every trade",
+          detail: "Read Transactions, Arbitrages, and the trade ledger to confirm what actually settled and what profit really remained."
+        }
+      ];
+      const realityCards = [
+        {
+          title: "Est. Net",
+          body: "This is modeled opportunity net after estimated costs. It is not the same as realized dollars in your wallet."
+        },
+        {
+          title: "Ready route",
+          body: "A route marked ready means the system believes it is executable. It still can fail on price movement, quote-provider issues, fees, wallet friction, or settlement."
+        },
+        {
+          title: "Demo result",
+          body: "Demo proves the decision path, guardrails, and logging. It does not prove that a real swap would capture the same money."
+        },
+        {
+          title: "Flash-loan candidate",
+          body: "This means the route might benefit from atomic borrowed capital later. It does not mean the flash-loan lane is already deployable."
+        }
+      ];
+
+      $("#profitabilityBanner").innerHTML = `
+        <strong>${assessment.stage}</strong> ${assessment.summary}
+        <br>
+        Strongest signal right now: ${assessment.strengths[0] || "scanner visibility is improving"}.
+        Biggest blocker: ${assessment.blockers[0] || "none reported"}.
+      `;
+
+      $("#guideVerdictBanner").innerHTML = `
+        <strong>${assessment.verdict}</strong> ${assessment.summary}
+      `;
+
+      $("#guideSummaryCards").innerHTML = `
+        <div class="card">
+          <div class="eyebrow">Verdict</div>
+          <h3>${assessment.stage}</h3>
+          <div class="muted">${assessment.verdict}</div>
+        </div>
+        <div class="card">
+          <div class="eyebrow">Ready routes</div>
+          <h3>${assessment.metrics.readyRouteCount}</h3>
+          <div class="muted">Routes aligned with an executor path right now.</div>
+        </div>
+        <div class="card">
+          <div class="eyebrow">Live executors</div>
+          <h3>${assessment.metrics.liveExecutors}</h3>
+          <div class="muted">Chains that actually report live-ready execution.</div>
+        </div>
+        <div class="card">
+          <div class="eyebrow">Realized net</div>
+          <h3 class="${assessment.metrics.realizedNetUsd >= 0 ? "positive" : "negative"}">${money(assessment.metrics.realizedNetUsd)}</h3>
+          <div class="muted">Profit already captured, not just estimated.</div>
+        </div>
+        <div class="card">
+          <div class="eyebrow">Daily loss</div>
+          <h3 class="${assessment.metrics.dailyLossUsd > 0 ? "negative" : "positive"}">${money(assessment.metrics.dailyLossUsd)}</h3>
+          <div class="muted">Current realized drawdown tracked by the backend.</div>
+        </div>
+        <div class="card">
+          <div class="eyebrow">High-quality scan</div>
+          <h3>${assessment.metrics.highQualityCount}</h3>
+          <div class="muted">A/B quality opportunities available for review.</div>
+        </div>
+      `;
+
+      $("#guidePageCards").innerHTML = pageCards.map((item) => `
+        <div class="card">
+          <div class="eyebrow">${item.name}</div>
+          <h3>${item.use}</h3>
+          <div class="muted">${item.caution}</div>
+        </div>
+      `).join("");
+
+      $("#guideWorkflow").innerHTML = workflow.map((item) => `
+        <div class="card">
+          <div class="eyebrow">Workflow</div>
+          <h3>${item.title}</h3>
+          <div class="muted">${item.detail}</div>
+        </div>
+      `).join("");
+
+      $("#guideChecklist").innerHTML = assessment.gates.map((item) => `
+        <div class="card">
+          <div class="eyebrow">${item.ok ? "Ready" : "Pending"}</div>
+          <h3>${item.label}</h3>
+          <div class="muted">${item.detail}</div>
+        </div>
+      `).join("");
+
+      $("#guideReality").innerHTML = `
+        ${realityCards.map((item) => `
+          <div class="card">
+            <div class="eyebrow">${item.title}</div>
+            <div class="muted">${item.body}</div>
+          </div>
+        `).join("")}
+        <div class="card">
+          <div class="eyebrow">Current blockers</div>
+          <ul class="guide-list">
+            ${assessment.blockers.map((item) => `<li>${item}</li>`).join("") || "<li>No active blockers reported.</li>"}
+          </ul>
+        </div>
+        <div class="card">
+          <div class="eyebrow">Next practical moves</div>
+          <ul class="guide-list">
+            ${assessment.nextSteps.map((item) => `<li><strong>${item.label}:</strong> ${item.detail}</li>`).join("")}
+          </ul>
+        </div>
+        <div class="card">
+          <div class="eyebrow">Recent ledger reality</div>
+          <ul class="guide-list">
+            ${recentLedger.map((item) => `<li><strong>${time(item.createdAt)}:</strong> ${item.inputSymbol || "-"} -> ${item.outputSymbol || item.assetSymbol || "-"} | ${item.status} | ${item.failureReason || "logged without failure reason"}</li>`).join("") || "<li>No ledger entries yet.</li>"}
+          </ul>
+        </div>
+      `;
+    }
+
     function renderOpportunities() {
       const q = ($("#oppSearch").value || "").toLowerCase();
       const chainFilter = $("#oppChainFilter").value || "all";
@@ -1855,6 +2211,7 @@
 
     function renderAll() {
       renderMetrics();
+      renderGuide();
       renderOverviewOpps();
       renderDexBars();
       renderReadinessCards();
