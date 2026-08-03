@@ -60,8 +60,7 @@
       pointer-events: none;
       z-index: 0;
       filter: blur(22px);
-      opacity: 0.48;
-      animation: drift 16s ease-in-out infinite alternate;
+      opacity: 0.28;
     }
 
     body::before {
@@ -203,8 +202,8 @@
       position: absolute;
       inset: 0;
       background: linear-gradient(115deg, transparent 22%, rgba(255, 255, 255, 0.05) 38%, transparent 54%);
-      transform: translateX(-38%);
-      animation: sheen 7.8s linear infinite;
+      transform: translateX(0);
+      opacity: 0.4;
       pointer-events: none;
     }
 
@@ -1055,21 +1054,13 @@
       flex: 0 0 auto;
     }
 
-    @keyframes drift {
-      from {
-        transform: translate3d(0, 0, 0) scale(1);
-      }
-      to {
-        transform: translate3d(18px, -22px, 0) scale(1.08);
-      }
-    }
-
-    @keyframes sheen {
-      from {
-        transform: translateX(-38%);
-      }
-      to {
-        transform: translateX(130%);
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation: none !important;
+        transition: none !important;
+        scroll-behavior: auto !important;
       }
     }
 
