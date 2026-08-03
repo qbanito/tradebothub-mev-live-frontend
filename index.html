@@ -1010,6 +1010,25 @@
       return state.opportunities.find((item) => item.id === opportunityId) || null;
     }
 
+    function executorCapability(chainId) {
+      return (state.capabilities || []).find((item) => item.chainId === chainId) || null;
+    }
+
+    function executorDeployment(chainId) {
+      return executorCapability(chainId)?.deployment || null;
+    }
+
+    function shortEvmAddress(value, size = 6) {
+      const text = String(value || "").trim();
+      if (!text) {
+        return "not set";
+      }
+      if (text.length <= size * 2 + 2) {
+        return text;
+      }
+      return `${text.slice(0, size + 2)}...${text.slice(-size)}`;
+    }
+
     function opportunityActionButtons(item) {
       if (walletExecutableOpportunity(item)) {
         return `
@@ -1021,9 +1040,10 @@
         `;
       }
       if (item.chainId !== "solana") {
+        const polygonDeployed = item.chainId === "polygon" && executorDeployment("polygon");
         return `
           <div class="actions" style="gap:6px; flex-wrap:wrap;">
-            <button class="btn" data-opp-action="planner" data-opp-id="${item.id}">Planner</button>
+            <button class="btn" data-opp-action="planner" data-opp-id="${item.id}">${polygonDeployed ? "Atomic planner" : "Planner"}</button>
             <button class="btn warn" data-opp-action="simulate-advanced" data-opp-id="${item.id}">Simulate</button>
           </div>
         `;
@@ -1440,6 +1460,8 @@
       const risk = state.riskStatus;
       const walletConnected = Boolean(state.walletPublicKey);
       const evmConnected = Boolean(state.evmWalletAddress);
+      const polygonCapability = executorCapability("polygon");
+      const polygonDeployment = polygonCapability?.deployment || null;
       const anyConnectedNow = anyWalletConnected();
       $("#connectWalletBtn").textContent = anyConnectedNow ? "Disconnect wallet" : "Connect wallet";
       $("#buildWalletBtn").disabled = !walletConnected;
@@ -1465,7 +1487,13 @@
                 ? `${state.evmWalletAddress} | ${evmChainLabel(state.evmChainHex)}`
                 : "Use Phantom, Backpack, Solflare, or MetaMask in this browser."
           }</div>
-          <div class="muted">${state.lastWalletError || "Direct wallet execution is currently Solana-only in this view."}</div>
+          <div class="muted">${
+            state.lastWalletError || (
+              polygonDeployment
+                ? `Polygon executor deployed at ${shortEvmAddress(polygonDeployment.contractAddress)}. Direct wallet build/sign here is still Solana-first while the EVM router flow is being finished.`
+                : "Direct wallet execution is currently Solana-only in this view."
+            )
+          }</div>
         </div>
       `;
 
@@ -1478,14 +1506,30 @@
       $("#sideReadiness").textContent = walletConnected
         ? "Tu wallet ya puede firmar transacciones preparadas por el backend."
         : evmConnected
-          ? "MetaMask ya esta conectado para flujos EVM y planner. La firma directa en esta vista sigue centrada en Solana."
-          : "Conecta tu wallet para firmar y enviar desde el frontend. El scanner puede cubrir mas chains, pero este executor sigue siendo Solana.";
+          ? (
+            polygonDeployment
+              ? `MetaMask ya esta conectado. Polygon ya tiene contrato desplegado en ${shortEvmAddress(polygonDeployment.contractAddress)}, aunque la firma directa en esta vista todavia sigue centrada en Solana.`
+              : "MetaMask ya esta conectado para flujos EVM y planner. La firma directa en esta vista sigue centrada en Solana."
+          )
+          : (
+            polygonDeployment
+              ? `Conecta tu wallet para planner EVM. Polygon ya tiene executor desplegado en ${shortEvmAddress(polygonDeployment.contractAddress)}, pero el flujo build/sign todavia no esta terminado en esta vista.`
+              : "Conecta tu wallet para firmar y enviar desde el frontend. El scanner puede cubrir mas chains, pero este executor sigue siendo Solana."
+          );
 
       $("#executionBanner").textContent = walletConnected
         ? "Modo recomendado: el backend prepara la transaccion y tu wallet la firma localmente en el navegador. Hoy la ejecucion real sigue centrada en Solana."
         : evmConnected
-          ? "MetaMask ya responde en el frontend, pero la ejecucion directa de swaps en esta vista todavia requiere Phantom, Backpack o Solflare."
-          : "No voy a poner una private key viva en Render para este flujo. Conecta tu wallet y el frontend firmara localmente. El discovery ya puede crecer a multi-chain.";
+          ? (
+            polygonDeployment
+              ? "MetaMask ya responde en el frontend y Polygon ya tiene un executor desplegado. El siguiente cableado pendiente es construir la transaccion EVM final desde esta vista."
+              : "MetaMask ya responde en el frontend, pero la ejecucion directa de swaps en esta vista todavia requiere Phantom, Backpack o Solflare."
+          )
+          : (
+            polygonDeployment
+              ? "No voy a poner una private key viva en Render. Polygon ya tiene contrato desplegado y el siguiente paso es terminar el build/sign EVM desde el navegador."
+              : "No voy a poner una private key viva en Render para este flujo. Conecta tu wallet y el frontend firmara localmente. El discovery ya puede crecer a multi-chain."
+          );
 
       $("#modeBadge").disabled = false;
       $("#modeBadge").textContent = walletConnected ? "Wallet ready" : evmConnected ? "EVM ready" : "Connect wallet";
@@ -1511,14 +1555,22 @@
           <div class="muted">Max token exposure ${money(risk.limits?.maxTokenExposureUsd || 0)}</div>
         </div>
       ` : "";
-      const executors = (state.capabilities || []).map((item) => `
+      const executors = (state.capabilities || []).map((item) => {
+        const deployment = item.deployment;
+        const deploymentHtml = deployment?.contractAddress ? `
+          <div class="muted mono">${shortEvmAddress(deployment.contractAddress)}${deployment.owner ? ` | owner ${shortEvmAddress(deployment.owner, 4)}` : ""}</div>
+          <div class="muted">${deployment.statusLabel || deployment.status || "deployed"}${deployment.explorerUrl ? ` | <a href="${deployment.explorerUrl}" target="_blank" rel="noreferrer">contract</a>` : ""}${deployment.txUrl ? ` | <a href="${deployment.txUrl}" target="_blank" rel="noreferrer">tx</a>` : ""}</div>
+        ` : "";
+        return `
         <div class="card">
           <div class="eyebrow">${item.chainName}</div>
           <h3>${item.status}</h3>
           <div class="muted">${item.notes}</div>
+          ${deploymentHtml}
           <div class="muted">Quotes ${item.quoteSupport ? "on" : "off"} | Build ${item.buildSupport ? "on" : "off"} | Flash loans ${item.flashLoanStage}</div>
         </div>
-      `).join("");
+      `;
+      }).join("");
       const strategies = (state.strategies || []).slice(0, 4).map((item) => `
         <div class="card">
           <div class="eyebrow">Strategy ${item.stage}</div>
@@ -1640,6 +1692,7 @@
     function renderAdvancedView() {
       const planner = state.advancedPlanner || { summary: {}, items: [] };
       const items = planner.items || [];
+      const polygonDeployment = executorDeployment("polygon");
       const currentSelected = state.selectedAdvancedOpportunityId;
       const options = items.map((item) => `
         <option value="${item.opportunityId}">${item.chainName} | ${item.symbol} | ${item.statusLabel}</option>
@@ -1684,6 +1737,12 @@
           <div class="eyebrow">Providers</div>
           <h3>${state.flashLoanProviders.length} mapped</h3>
           <div class="muted">${(state.flashLoanProviders || []).filter((item) => item.status === "mapped").length} mapped | ${(state.flashLoanProviders || []).filter((item) => item.status !== "mapped").length} research</div>
+        </div>
+        <div class="card">
+          <div class="eyebrow">Polygon executor</div>
+          <h3>${polygonDeployment ? "deployed" : "not deployed"}</h3>
+          <div class="muted mono">${polygonDeployment ? shortEvmAddress(polygonDeployment.contractAddress) : "No contract recorded yet."}</div>
+          <div class="muted">${polygonDeployment?.explorerUrl ? `<a href="${polygonDeployment.explorerUrl}" target="_blank" rel="noreferrer">View contract</a>` : "Planner-only until deployment exists."}</div>
         </div>
         <div class="card">
           <div class="eyebrow">Shadow execution</div>
