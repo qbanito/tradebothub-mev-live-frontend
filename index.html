@@ -2145,6 +2145,7 @@
             <div>
               <strong>${item.role}:${item.dexLabel}</strong>
               | target <span class="mono">${item.targetAddress || item.envVar || "not configured"}</span>
+              | source <strong>${item.sourceLabel || item.source || "unknown"}</strong>
               | ${item.allowlisted ? "allowlisted" : "not allowlisted"}
             </div>
           `).join("")}</div>`
