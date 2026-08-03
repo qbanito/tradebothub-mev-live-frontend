@@ -3381,6 +3381,9 @@
           <div class="muted">${item.description}</div>
         </div>
       `).join("");
+      const activeBroadcastLanes = (status.activeBroadcastLanes || []).length
+        ? status.activeBroadcastLanes.join(" -> ")
+        : "none";
 
       $("#executionStatus").innerHTML = `
         <div class="card">
@@ -3392,6 +3395,11 @@
           <div class="eyebrow">Server signer</div>
           <h3>${status.canExecuteLive ? "ready" : "blocked"}</h3>
           <div class="muted mono">${status.signerPublicKey || "not configured"}</div>
+        </div>
+        <div class="card">
+          <div class="eyebrow">Broadcast mesh</div>
+          <h3>${status.broadcastMode || "rpc"}</h3>
+          <div class="muted">${activeBroadcastLanes}</div>
         </div>
         <div class="card">
           <div class="eyebrow">Limits</div>
