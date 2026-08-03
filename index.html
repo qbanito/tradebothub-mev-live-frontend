@@ -2130,6 +2130,25 @@
       const activeSimulation = state.advancedSimulation?.opportunityId === state.selectedAdvancedOpportunityId
         ? state.advancedSimulation
         : null;
+      const preflight = planCard?.executionPreflight || null;
+      const preflightSummary = preflight
+        ? `
+            <p>Executor preflight: <strong>${preflight.statusLabel}</strong> | Targets <strong>${preflight.routeTargetsReady ? "configured" : "missing"}</strong> | Allowlist <strong>${preflight.allowlistReady ? "ready" : "missing"}</strong></p>
+            <p>Private lane <strong>${preflight.privateReady ? "ready" : "missing"}</strong> | Adapters <strong>${preflight.adapterReady ? "ready" : "partial"}</strong></p>
+          `
+        : "";
+      const preflightActions = preflight?.actionItems?.length
+        ? `<div class="stack" style="margin-top:12px;">${preflight.actionItems.map((item) => `<div class="pill off">${item}</div>`).join("")}</div>`
+        : "";
+      const preflightTargets = preflight?.targetDescriptors?.length
+        ? `<div class="stack" style="margin-top:12px;">${preflight.targetDescriptors.map((item) => `
+            <div>
+              <strong>${item.role}:${item.dexLabel}</strong>
+              | target <span class="mono">${item.targetAddress || item.envVar || "not configured"}</span>
+              | ${item.allowlisted ? "allowlisted" : "not allowlisted"}
+            </div>
+          `).join("")}</div>`
+        : "";
       if (planCard && activeSimulation?.simulation) {
         const simulation = activeSimulation.simulation;
         const defaultScenario = simulation.defaultScenario || {};
@@ -2156,10 +2175,13 @@
             <p>Status: <strong>${activeSimulation.entry?.status || defaultScenario.status || "simulated"}</strong> | Confidence: <strong>${simulation.confidenceLabel}</strong> (${pct(simulation.confidencePct || 0)})</p>
             <p>Capital source: <strong>${planCard.capitalSource}</strong> | Provider: <strong>${planCard.flashLoanProvider?.provider || "None"}</strong></p>
             <p>Private lane: <strong>${planCard.privateRelay?.provider || "Not mapped"}</strong> | Adapter coverage: <strong>${planCard.adapterCoverageReady ? "mapped" : "partial"}</strong></p>
+            ${preflightSummary}
             <p>Default realistic net: <strong class="${Number(defaultScenario.netUsd || 0) >= 0 ? "positive" : "negative"}">${money(defaultScenario.netUsd || 0)}</strong></p>
             ${liveValidation}
             <div class="stack">${scenarios}</div>
             <div class="stack" style="margin-top:12px;">${realismWarnings}</div>
+            ${preflightTargets}
+            ${preflightActions}
           </div>
         `;
       } else if (planCard) {
@@ -2181,8 +2203,11 @@
             <p>Private lane: <strong>${planCard.privateRelay?.provider || "Not mapped"}</strong> | Submission: <strong>${planCard.privateRelay?.submissionMode || "public-risk"}</strong></p>
             <p>DEX adapters: <strong>${adapterSummary}</strong></p>
             <p>Batch reads: <strong>${planCard.batchReadReady ? "available" : "partial"}</strong> | Adapter coverage: <strong>${planCard.adapterCoverageReady ? "ready" : "partial"}</strong></p>
+            ${preflightSummary}
             <div class="stack">${steps || "<div>No execution steps generated.</div>"}</div>
             <div class="stack" style="margin-top:12px;">${warnings}</div>
+            ${preflightTargets}
+            ${preflightActions}
           </div>
         `;
       } else {
