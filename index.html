@@ -1077,7 +1077,7 @@
     async function executeOpportunityTransaction(item) {
       setActiveView("execution");
       prefillExecutionForOpportunity(item);
-      await connectWallet();
+      await connectWallet({ allowEvmFallback: false });
       await buildWalletTransaction();
       await sendWithWallet();
     }
@@ -1129,9 +1129,20 @@
       return chainMap[String(chainHex || "").toLowerCase()] || "Unknown EVM chain";
     }
 
-    async function connectWallet() {
+    function anyWalletConnected() {
+      return Boolean(state.walletPublicKey || state.evmWalletAddress);
+    }
+
+    async function connectWallet(options = {}) {
+      const { allowEvmFallback = true } = options;
       const wallet = getWalletProvider();
       if (!wallet?.provider?.connect) {
+        if (allowEvmFallback && getEvmProvider()) {
+          await connectEvmWallet();
+          state.lastWalletError = "MetaMask/EVM wallet connected. Direct execution in this view still requires a Solana wallet.";
+          renderExecutionStatus();
+          return null;
+        }
         throw new Error("No injected Solana wallet found. Install Phantom, Backpack, or Solflare in this browser.");
       }
       const response = await wallet.provider.connect();
@@ -1175,6 +1186,8 @@
       state.evmWalletAddress = address;
       state.evmWalletLabel = wallet.label;
       state.evmChainHex = chainHex;
+      state.lastWalletError = null;
+      renderExecutionStatus();
       renderAdvancedView();
     }
 
@@ -1182,6 +1195,8 @@
       state.evmWalletAddress = null;
       state.evmWalletLabel = null;
       state.evmChainHex = null;
+      state.lastWalletError = null;
+      renderExecutionStatus();
       renderAdvancedView();
     }
 
@@ -1415,7 +1430,9 @@
       const status = state.executionStatus;
       const risk = state.riskStatus;
       const walletConnected = Boolean(state.walletPublicKey);
-      $("#connectWalletBtn").textContent = walletConnected ? "Disconnect wallet" : "Connect wallet";
+      const evmConnected = Boolean(state.evmWalletAddress);
+      const anyConnectedNow = anyWalletConnected();
+      $("#connectWalletBtn").textContent = anyConnectedNow ? "Disconnect wallet" : "Connect wallet";
       $("#buildWalletBtn").disabled = !walletConnected;
       $("#sendWalletBtn").disabled = !walletConnected || !state.builtSwap;
       $("#demoTopBtn").disabled = !topReadyOpportunity();
@@ -1425,8 +1442,20 @@
       $("#walletStatus").innerHTML = `
         <div class="card">
           <div class="eyebrow">Wallet</div>
-          <h3>${walletConnected ? state.walletLabel || "Connected" : "not connected"}</h3>
-          <div class="muted mono">${walletConnected ? state.walletPublicKey : "Use Phantom, Backpack, or Solflare in this browser."}</div>
+          <h3>${
+            walletConnected
+              ? state.walletLabel || "Solana wallet connected"
+              : evmConnected
+                ? state.evmWalletLabel || "EVM wallet connected"
+                : "not connected"
+          }</h3>
+          <div class="muted mono">${
+            walletConnected
+              ? state.walletPublicKey
+              : evmConnected
+                ? `${state.evmWalletAddress} | ${evmChainLabel(state.evmChainHex)}`
+                : "Use Phantom, Backpack, Solflare, or MetaMask in this browser."
+          }</div>
           <div class="muted">${state.lastWalletError || "Direct wallet execution is currently Solana-only in this view."}</div>
         </div>
       `;
@@ -1436,17 +1465,21 @@
         return;
       }
 
-      $("#sideMode").textContent = walletConnected ? "Wallet connected" : "Wallet mode";
+      $("#sideMode").textContent = walletConnected ? "Wallet connected" : evmConnected ? "EVM wallet connected" : "Wallet mode";
       $("#sideReadiness").textContent = walletConnected
         ? "Tu wallet ya puede firmar transacciones preparadas por el backend."
-        : "Conecta tu wallet para firmar y enviar desde el frontend. El scanner puede cubrir mas chains, pero este executor sigue siendo Solana.";
+        : evmConnected
+          ? "MetaMask ya esta conectado para flujos EVM y planner. La firma directa en esta vista sigue centrada en Solana."
+          : "Conecta tu wallet para firmar y enviar desde el frontend. El scanner puede cubrir mas chains, pero este executor sigue siendo Solana.";
 
       $("#executionBanner").textContent = walletConnected
         ? "Modo recomendado: el backend prepara la transaccion y tu wallet la firma localmente en el navegador. Hoy la ejecucion real sigue centrada en Solana."
-        : "No voy a poner una private key viva en Render para este flujo. Conecta tu wallet y el frontend firmara localmente. El discovery ya puede crecer a multi-chain.";
+        : evmConnected
+          ? "MetaMask ya responde en el frontend, pero la ejecucion directa de swaps en esta vista todavia requiere Phantom, Backpack o Solflare."
+          : "No voy a poner una private key viva en Render para este flujo. Conecta tu wallet y el frontend firmara localmente. El discovery ya puede crecer a multi-chain.";
 
-      $("#modeBadge").textContent = walletConnected ? "Wallet ready" : "Wallet mode";
-      $("#modeBadge").className = walletConnected ? "btn primary" : "btn warn";
+      $("#modeBadge").textContent = walletConnected ? "Wallet ready" : evmConnected ? "EVM ready" : "Wallet mode";
+      $("#modeBadge").className = walletConnected ? "btn primary" : evmConnected ? "btn" : "btn warn";
 
       const reasons = status.reasons?.length
         ? status.reasons.map((reason) => `<div class="pill off">${reason}</div>`).join("")
@@ -1918,7 +1951,7 @@
     async function buildWalletTransaction() {
       try {
         if (!state.walletPublicKey) {
-          await connectWallet();
+          await connectWallet({ allowEvmFallback: false });
         }
         const payload = await api("/api/execution/build", {
           method: "POST",
@@ -1948,7 +1981,7 @@
           throw new Error("No compatible Solana wallet found in this browser.");
         }
         if (!state.walletPublicKey) {
-          await connectWallet();
+          await connectWallet({ allowEvmFallback: false });
         }
         if (!state.builtSwap) {
           await buildWalletTransaction();
@@ -2221,8 +2254,9 @@
     $("#demoTopBtn").addEventListener("click", runDemoTopOpportunity);
     $("#killSwitchBtn").addEventListener("click", toggleKillSwitch);
     $("#connectWalletBtn").addEventListener("click", async () => {
-      if (state.walletPublicKey) {
+      if (anyWalletConnected()) {
         await disconnectWallet();
+        disconnectEvmWallet();
         return;
       }
       try {
