@@ -483,7 +483,7 @@
 
         <div class="top-actions">
           <button class="btn" id="refreshBtn">Refresh</button>
-          <button class="btn warn" id="modeBadge" disabled>Paper only</button>
+          <button class="btn warn" id="modeBadge">Paper only</button>
         </div>
       </div>
 
@@ -1200,6 +1200,15 @@
       renderAdvancedView();
     }
 
+    async function toggleWalletConnection() {
+      if (anyWalletConnected()) {
+        await disconnectWallet();
+        disconnectEvmWallet();
+        return;
+      }
+      await connectWallet();
+    }
+
     function selectedAdvancedItem() {
       const items = state.advancedPlanner?.items || [];
       return items.find((item) => item.opportunityId === state.selectedAdvancedOpportunityId) || items[0] || null;
@@ -1478,7 +1487,8 @@
           ? "MetaMask ya responde en el frontend, pero la ejecucion directa de swaps en esta vista todavia requiere Phantom, Backpack o Solflare."
           : "No voy a poner una private key viva en Render para este flujo. Conecta tu wallet y el frontend firmara localmente. El discovery ya puede crecer a multi-chain.";
 
-      $("#modeBadge").textContent = walletConnected ? "Wallet ready" : evmConnected ? "EVM ready" : "Wallet mode";
+      $("#modeBadge").disabled = false;
+      $("#modeBadge").textContent = walletConnected ? "Wallet ready" : evmConnected ? "EVM ready" : "Connect wallet";
       $("#modeBadge").className = walletConnected ? "btn primary" : evmConnected ? "btn" : "btn warn";
 
       const reasons = status.reasons?.length
@@ -2254,13 +2264,18 @@
     $("#demoTopBtn").addEventListener("click", runDemoTopOpportunity);
     $("#killSwitchBtn").addEventListener("click", toggleKillSwitch);
     $("#connectWalletBtn").addEventListener("click", async () => {
-      if (anyWalletConnected()) {
-        await disconnectWallet();
-        disconnectEvmWallet();
-        return;
-      }
       try {
-        await connectWallet();
+        await toggleWalletConnection();
+      } catch (error) {
+        state.lastWalletError = error.message || String(error);
+        renderExecutionStatus();
+        renderQuote(null, error.message || String(error));
+      }
+    });
+    $("#modeBadge").addEventListener("click", async () => {
+      setActiveView("execution");
+      try {
+        await toggleWalletConnection();
       } catch (error) {
         state.lastWalletError = error.message || String(error);
         renderExecutionStatus();
