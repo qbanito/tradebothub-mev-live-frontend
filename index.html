@@ -2577,11 +2577,44 @@
     }
 
     function selectedPolygonPlan() {
+      const polygonItems = (state.advancedPlanner?.items || []).filter((item) => item.chainId === "polygon");
+      if (!polygonItems.length) {
+        return null;
+      }
       const selected = selectedAdvancedItem();
       if (selected?.chainId === "polygon") {
         return selected;
       }
-      return (state.advancedPlanner?.items || []).find((item) => item.chainId === "polygon") || null;
+      return polygonItems.slice().sort((left, right) => {
+        const leftPreflight = left.executionPreflight || {};
+        const rightPreflight = right.executionPreflight || {};
+        const leftMissingConfig = (leftPreflight.missingTargetConfig || []).length;
+        const rightMissingConfig = (rightPreflight.missingTargetConfig || []).length;
+        if (leftMissingConfig !== rightMissingConfig) {
+          return leftMissingConfig - rightMissingConfig;
+        }
+        const leftCustomTargets = (leftPreflight.targetDescriptors || []).filter(
+          (item) => item?.source === "route-label-address"
+        ).length;
+        const rightCustomTargets = (rightPreflight.targetDescriptors || []).filter(
+          (item) => item?.source === "route-label-address"
+        ).length;
+        if (leftCustomTargets !== rightCustomTargets) {
+          return leftCustomTargets - rightCustomTargets;
+        }
+        const leftAllowlist = (leftPreflight.missingAllowlistTargets || []).length;
+        const rightAllowlist = (rightPreflight.missingAllowlistTargets || []).length;
+        if (leftAllowlist !== rightAllowlist) {
+          return leftAllowlist - rightAllowlist;
+        }
+        if (Boolean(left.adapterCoverageReady) !== Boolean(right.adapterCoverageReady)) {
+          return Number(Boolean(right.adapterCoverageReady)) - Number(Boolean(left.adapterCoverageReady));
+        }
+        if (Boolean(left.privateSubmitReady) !== Boolean(right.privateSubmitReady)) {
+          return Number(Boolean(right.privateSubmitReady)) - Number(Boolean(left.privateSubmitReady));
+        }
+        return Number(right.projectedNetUsd || 0) - Number(left.projectedNetUsd || 0);
+      })[0] || null;
     }
 
     function normalizeAddress(value) {
@@ -4041,6 +4074,7 @@
         throw new Error("Polygon executor deployment metadata is missing.");
       }
       const preflight = plan.executionPreflight || {};
+      const targetDescriptors = preflight.targetDescriptors || [];
       if (String(plan.chainId || "").toLowerCase() !== "polygon") {
         throw new Error("The selected advanced route is not on Polygon.");
       }
@@ -4059,6 +4093,33 @@
           deployment,
           blockers,
           nextSteps: ["Set the missing router env vars in Render and refresh planner metadata."],
+          txRequest: null,
+          statusLabel: "blocked"
+        };
+        state.builtSwap = null;
+        state.lastWalletError = null;
+        renderEvmAction(state.builtWalletAction);
+        renderExecutionStatus();
+        return;
+      }
+
+      const unreviewedTargets = targetDescriptors.filter((item) =>
+        item?.targetAddress && item?.source === "route-label-address"
+      );
+      if (unreviewedTargets.length) {
+        state.builtWalletAction = {
+          walletType: "evm",
+          kind: "blocked-execution",
+          label: "Polygon route needs manual target review",
+          plan,
+          deployment,
+          blockers: unreviewedTargets.map((item) =>
+            `Target ${item.targetAddress} came from the route label for ${item.dexLabel} and will not be auto-allowlisted.`
+          ),
+          nextSteps: [
+            "Review that contract manually before adding it to the executor allowlist.",
+            "Prefer Polygon routes backed by configured QuickSwap or Uniswap targets."
+          ],
           txRequest: null,
           statusLabel: "blocked"
         };
