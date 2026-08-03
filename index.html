@@ -870,6 +870,36 @@
       margin-top: 8px;
     }
 
+    .drawer-tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 14px 0 0;
+    }
+
+    .drawer-tab {
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.025);
+      color: var(--muted);
+      cursor: pointer;
+      transition: 160ms ease;
+    }
+
+    .drawer-tab.active,
+    .drawer-tab:hover {
+      color: var(--text);
+      background: linear-gradient(135deg, rgba(111, 208, 255, 0.16), rgba(98, 244, 181, 0.1));
+      border-color: rgba(111, 208, 255, 0.16);
+    }
+
+    .watch-button.active {
+      background: linear-gradient(135deg, rgba(255, 211, 122, 0.22), rgba(255, 255, 255, 0.06));
+      color: var(--yellow);
+      border-color: rgba(255, 211, 122, 0.24);
+    }
+
     .spotlight-card,
     .opportunity-card {
       position: relative;
@@ -1346,6 +1376,16 @@
           <div class="notice" style="margin-bottom:14px;">
             Multi-chain scanning now ranks opportunities by execution quality and can validate top Solana routes with live quotes. Validation means route feasibility, not guaranteed realized profit.
           </div>
+          <div class="panel" style="margin-bottom:14px;">
+            <div class="section-head">
+              <div>
+                <div class="eyebrow">Watchlist</div>
+                <h2>Operator priority routes</h2>
+              </div>
+              <p>Marca aquí las rutas que quieres seguir como operador para que no se pierdan dentro del flujo del scanner.</p>
+            </div>
+            <div class="cards" id="watchlistCards"></div>
+          </div>
           <div class="opportunity-grid" id="opportunityCards"></div>
           <div class="table-wrap">
             <table>
@@ -1753,6 +1793,8 @@
       advancedSimulation: null,
       selectedAdvancedOpportunityId: null,
       drawerOpportunityId: null,
+      drawerTab: "overview",
+      watchlistIds: [],
       validations: {},
       lastQuote: null,
       builtSwap: null,
@@ -1777,6 +1819,25 @@
     const validationFor = (item) => state.validations[item.id] || null;
     const executorFor = (chainId) => (state.capabilities || []).find((item) => item.chainId === chainId) || null;
     const topReadyOpportunity = () => state.opportunities.find((item) => item.executionSupported && item.status === "ready") || null;
+
+    function loadWatchlistIds() {
+      try {
+        return JSON.parse(window.localStorage.getItem("tradebothub-watchlist") || "[]")
+          .filter(Boolean)
+          .map((item) => String(item));
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function persistWatchlistIds() {
+      try {
+        window.localStorage.setItem("tradebothub-watchlist", JSON.stringify(state.watchlistIds || []));
+      } catch (error) {
+      }
+    }
+
+    state.watchlistIds = loadWatchlistIds();
 
     function qualityPillClass(item) {
       if (item.qualityTier === "A" || item.qualityTier === "B") {
@@ -2141,6 +2202,35 @@
       return state.drawerOpportunityId ? findOpportunityById(state.drawerOpportunityId) : null;
     }
 
+    function isWatched(opportunityId) {
+      return (state.watchlistIds || []).includes(String(opportunityId));
+    }
+
+    function setDrawerTab(tabName) {
+      state.drawerTab = tabName || "overview";
+      renderOpportunityDrawer();
+    }
+
+    function toggleWatchlist(opportunityId) {
+      const key = String(opportunityId);
+      if (isWatched(key)) {
+        state.watchlistIds = (state.watchlistIds || []).filter((item) => item !== key);
+      } else {
+        state.watchlistIds = [...new Set([...(state.watchlistIds || []), key])];
+      }
+      persistWatchlistIds();
+      renderOpportunities();
+      renderOverviewSpotlight();
+      renderWatchlistCards();
+      renderOpportunityDrawer();
+    }
+
+    function watchlistOpportunities() {
+      return (state.watchlistIds || [])
+        .map((id) => findOpportunityById(id))
+        .filter(Boolean);
+    }
+
     function executorCapability(chainId) {
       return (state.capabilities || []).find((item) => item.chainId === chainId) || null;
     }
@@ -2249,6 +2339,7 @@
 
     function openOpportunityDrawer(opportunityId) {
       state.drawerOpportunityId = opportunityId;
+      state.drawerTab = "overview";
       renderOpportunityDrawer();
     }
 
@@ -2291,6 +2382,7 @@
       const validation = validationFor(item);
       const executor = executorCapability(item.chainId);
       const polygonDeployment = executorDeployment("polygon");
+      const watched = isWatched(item.id);
       const routeRead = walletExecutableOpportunity(item)
         ? "Wallet-assisted now"
         : item.chainId === "polygon" && polygonDeployment
@@ -2313,14 +2405,91 @@
       if (item.chainId !== "solana" && !polygonDeployment && item.chainId === "polygon") blockerList.push("Polygon contract wiring still needs deployment metadata.");
       if (!blockerList.length) blockerList.push("No immediate blocker surfaced in the drawer snapshot.");
 
+      const tab = state.drawerTab || "overview";
+      const tabButtons = [
+        ["overview", "Overview"],
+        ["execution", "Execution"],
+        ["risk", "Risk"],
+        ["route", "Route"],
+      ].map(([id, label]) => `<button class="drawer-tab ${tab === id ? "active" : ""}" data-drawer-tab="${id}">${label}</button>`).join("");
+
+      let sectionHtml = "";
+      if (tab === "execution") {
+        sectionHtml = `
+          <div class="drawer-section">
+            <div class="eyebrow">Execution posture</div>
+            <h3 style="margin-top:8px;">${routeRead}</h3>
+            <p class="muted">${nextMove}</p>
+            <div class="drawer-grid" style="margin-top:14px;">
+              <div class="drawer-stat"><small class="muted">Validation</small><strong>${validationLabel(validation, item)}</strong></div>
+              <div class="drawer-stat"><small class="muted">Executor</small><strong>${executor?.status || "unknown"}</strong></div>
+              <div class="drawer-stat"><small class="muted">Primary action</small><strong>${drawerPrimaryAction(item)}</strong></div>
+              <div class="drawer-stat"><small class="muted">Chain posture</small><strong>${item.chainId === "solana" ? "Wallet-first" : "Planner-first"}</strong></div>
+            </div>
+          </div>
+        `;
+      } else if (tab === "risk") {
+        sectionHtml = `
+          <div class="drawer-section">
+            <div class="eyebrow">Risk read</div>
+            <ul class="drawer-list">
+              ${blockerList.map((entry) => `<li>${entry}</li>`).join("")}
+              <li>Quality score is <strong>${item.qualityScore}</strong> with tier <strong>${item.qualityTier}</strong>.</li>
+              <li>Capital requirement is <strong>${money(item.capital)}</strong> with modeled costs <strong>${money(item.costs)}</strong>.</li>
+            </ul>
+          </div>
+        `;
+      } else if (tab === "route") {
+        sectionHtml = `
+          <div class="drawer-section">
+            <div class="eyebrow">Route anatomy</div>
+            <div class="drawer-grid">
+              <div class="drawer-stat"><small class="muted">Buy venue</small><strong>${item.buyDex}</strong></div>
+              <div class="drawer-stat"><small class="muted">Sell venue</small><strong>${item.sellDex}</strong></div>
+              <div class="drawer-stat"><small class="muted">Strategy</small><strong>${item.strategyLabel || "route"}</strong></div>
+              <div class="drawer-stat"><small class="muted">Detected</small><strong>${time(item.detectedAt)}</strong></div>
+            </div>
+            <div class="opportunity-chart">${sparklineSvg(opportunitySignal(item))}</div>
+          </div>
+        `;
+      } else {
+        sectionHtml = `
+          <div class="drawer-section">
+            <div class="eyebrow">Execution posture</div>
+            <h3 style="margin-top:8px;">${routeRead}</h3>
+            <p class="muted">${nextMove}</p>
+            <div class="drawer-grid" style="margin-top:14px;">
+              <div class="drawer-stat"><small class="muted">Validation</small><strong>${validationLabel(validation, item)}</strong></div>
+              <div class="drawer-stat"><small class="muted">Executor</small><strong>${executor?.status || "unknown"}</strong></div>
+              <div class="drawer-stat"><small class="muted">Primary action</small><strong>${drawerPrimaryAction(item)}</strong></div>
+              <div class="drawer-stat"><small class="muted">Chain posture</small><strong>${item.chainId === "solana" ? "Wallet-first" : "Planner-first"}</strong></div>
+            </div>
+          </div>
+
+          <div class="drawer-section">
+            <div class="eyebrow">Operator checklist</div>
+            <ul class="drawer-list">
+              ${blockerList.map((entry) => `<li>${entry}</li>`).join("")}
+            </ul>
+            <div class="drawer-actions">
+              ${opportunityActionButtons(item)}
+            </div>
+          </div>
+        `;
+      }
+
       content.innerHTML = `
         <div class="drawer-head">
           <div>
             <div class="eyebrow">${chainName(item)} | ${item.strategyLabel || "route intelligence"}</div>
             <h2 style="margin:8px 0 4px;">${item.symbol}</h2>
             <div class="muted">${item.buyDex} -> ${item.sellDex}</div>
+            <div class="drawer-tabs">${tabButtons}</div>
           </div>
-          <button class="btn drawer-close" id="oppDrawerClose" aria-label="Close opportunity drawer">×</button>
+          <div style="display:grid; gap:8px;">
+            <button class="btn watch-button ${watched ? "active" : ""}" data-watch-toggle="${item.id}">${watched ? "★ Watched" : "☆ Watch"}</button>
+            <button class="btn drawer-close" id="oppDrawerClose" aria-label="Close opportunity drawer">×</button>
+          </div>
         </div>
 
         <div class="drawer-section">
@@ -2349,27 +2518,7 @@
           </div>
         </div>
 
-        <div class="drawer-section">
-          <div class="eyebrow">Execution posture</div>
-          <h3 style="margin-top:8px;">${routeRead}</h3>
-          <p class="muted">${nextMove}</p>
-          <div class="drawer-grid" style="margin-top:14px;">
-            <div class="drawer-stat"><small class="muted">Validation</small><strong>${validationLabel(validation, item)}</strong></div>
-            <div class="drawer-stat"><small class="muted">Executor</small><strong>${executor?.status || "unknown"}</strong></div>
-            <div class="drawer-stat"><small class="muted">Primary action</small><strong>${drawerPrimaryAction(item)}</strong></div>
-            <div class="drawer-stat"><small class="muted">Chain posture</small><strong>${item.chainId === "solana" ? "Wallet-first" : "Planner-first"}</strong></div>
-          </div>
-        </div>
-
-        <div class="drawer-section">
-          <div class="eyebrow">Operator checklist</div>
-          <ul class="drawer-list">
-            ${blockerList.map((entry) => `<li>${entry}</li>`).join("")}
-          </ul>
-          <div class="drawer-actions">
-            ${opportunityActionButtons(item)}
-          </div>
-        </div>
+        ${sectionHtml}
       `;
 
       drawer.classList.add("open");
@@ -2542,6 +2691,7 @@
             </div>
             <div style="display:grid; gap:10px; justify-items:end;">
               ${iconChip(item.chainId === "solana" ? "wallet" : "route")}
+              ${isWatched(item.id) ? `<span class="floating-badge">★ Watched</span>` : ""}
               <span class="pill ${qualityPillClass(item)}">${item.qualityTier} ${item.qualityScore}</span>
             </div>
           </div>
@@ -2584,6 +2734,22 @@
           <td><span class="pill ${item.status === "watch" ? "warn" : ""}">${item.status}</span></td>
         </tr>
       `).join("") : `<tr><td colspan="9">No opportunities above threshold.</td></tr>`;
+    }
+
+    function renderWatchlistCards() {
+      const items = watchlistOpportunities().slice(0, 6);
+      $("#watchlistCards").innerHTML = items.length ? items.map((item) => `
+        <div class="card" data-opp-open="${item.id}" style="cursor:pointer;">
+          <div class="eyebrow">${chainName(item)} | Watchlist</div>
+          <h3>${item.symbol}</h3>
+          <div class="muted">${item.buyDex} -> ${item.sellDex}</div>
+          <div class="drawer-actions">
+            <span class="pill ${qualityPillClass(item)}">${item.qualityTier} ${item.qualityScore}</span>
+            <span class="pill">${executionLabel(item)}</span>
+          </div>
+          <div class="large-value ${numericToneClass(item.net)}" style="margin-top:14px;">${money(item.net)}</div>
+        </div>
+      `).join("") : `<div class="card">No watched opportunities yet. Mark routes from the drawer to keep a curated operator list.</div>`;
     }
 
     function renderDexBars() {
@@ -3563,6 +3729,7 @@
       renderGuide();
       renderOverviewSpotlight();
       renderOverviewOpps();
+      renderWatchlistCards();
       renderDexBars();
       renderReadinessCards();
       renderOverviewExecutions();
@@ -4028,6 +4195,18 @@
     $("#oppSearch").addEventListener("input", renderOpportunities);
     $("#oppChainFilter").addEventListener("change", renderOpportunities);
     document.addEventListener("click", async (event) => {
+      const tabButton = event.target.closest("button[data-drawer-tab]");
+      if (tabButton) {
+        setDrawerTab(tabButton.dataset.drawerTab);
+        return;
+      }
+
+      const watchButton = event.target.closest("button[data-watch-toggle]");
+      if (watchButton) {
+        toggleWatchlist(watchButton.dataset.watchToggle);
+        return;
+      }
+
       const openTrigger = event.target.closest("[data-opp-open]");
       if (openTrigger && !event.target.closest("button[data-opp-action]")) {
         openOpportunityDrawer(openTrigger.dataset.oppOpen);
