@@ -660,6 +660,119 @@
       gap: 14px;
     }
 
+    .cockpit-hero {
+      padding: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 24px;
+      background:
+        linear-gradient(180deg, rgba(12, 24, 34, 0.95), rgba(8, 17, 25, 0.92)),
+        radial-gradient(circle at top right, rgba(111, 208, 255, 0.14), transparent 26%);
+      box-shadow: var(--shadow);
+      margin-bottom: 14px;
+    }
+
+    .cockpit-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.9fr);
+      gap: 14px;
+      align-items: start;
+    }
+
+    .cockpit-head p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .cockpit-head h2 {
+      margin: 8px 0;
+      font-size: 28px;
+    }
+
+    .cockpit-side {
+      display: grid;
+      gap: 10px;
+    }
+
+    .cockpit-side .card,
+    .terminal-stat,
+    .matrix-card {
+      box-shadow: var(--shadow-soft);
+    }
+
+    .terminal-stat-grid,
+    .matrix-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .terminal-stat,
+    .matrix-card {
+      padding: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .terminal-stat strong,
+    .matrix-card strong {
+      display: block;
+      margin-top: 8px;
+      font-size: 20px;
+      letter-spacing: -0.03em;
+    }
+
+    .terminal-shell {
+      position: relative;
+      padding: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 22px;
+      background:
+        linear-gradient(180deg, rgba(6, 12, 18, 0.82), rgba(8, 16, 24, 0.92)),
+        radial-gradient(circle at top right, rgba(98, 244, 181, 0.08), transparent 24%);
+      overflow: hidden;
+    }
+
+    .terminal-shell::before {
+      content: "";
+      position: absolute;
+      top: 12px;
+      left: 14px;
+      width: 44px;
+      height: 8px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(255, 113, 136, 0.9), rgba(255, 211, 122, 0.9), rgba(98, 244, 181, 0.9));
+      opacity: 0.72;
+    }
+
+    .terminal-shell > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .timeline-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .timeline-card {
+      padding: 14px 16px;
+      border-left: 2px solid rgba(111, 208, 255, 0.4);
+      border-radius: 0 16px 16px 0;
+      background: rgba(255, 255, 255, 0.022);
+    }
+
+    .timeline-card h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+
+    .status-matrix {
+      display: grid;
+      gap: 12px;
+    }
+
     .spotlight-card,
     .opportunity-card {
       position: relative;
@@ -839,6 +952,7 @@
       }
 
       .topbar,
+      .cockpit-head,
       .two-col,
       .cards,
       .spotlight-grid,
@@ -868,7 +982,9 @@
 
       .metrics,
       .field-grid,
-      .hero-mini-grid {
+      .hero-mini-grid,
+      .terminal-stat-grid,
+      .matrix-grid {
         grid-template-columns: 1fr 1fr;
       }
 
@@ -895,7 +1011,9 @@
       .toolbar-grid,
       .opportunity-grid,
       .spotlight-kpis,
-      .opportunity-kpis {
+      .opportunity-kpis,
+      .terminal-stat-grid,
+      .matrix-grid {
         grid-template-columns: 1fr;
       }
 
@@ -1213,10 +1331,27 @@
           El backend ahora soporta cotizacion y envio, pero live sigue bloqueado hasta que Render tenga el signer y los flags correctos.
         </div>
 
+        <div class="cockpit-hero">
+          <div class="cockpit-head">
+            <div>
+              <div class="eyebrow">Execution cockpit</div>
+              <h2>Operator trade terminal</h2>
+              <p>Esta vista debe sentirse como la consola donde se decide si una oportunidad merece capital real, simulacion o bloqueo inmediato.</p>
+            </div>
+            <div class="cockpit-side" id="executionHeroSignal"></div>
+          </div>
+          <div class="terminal-stat-grid" id="executionHeroStats"></div>
+        </div>
+
         <div class="layout two-col">
-          <div class="panel">
-            <div class="eyebrow">Live swap workflow</div>
-            <h2>Quote and execute</h2>
+          <div class="panel terminal-shell">
+            <div class="section-head">
+              <div>
+                <div class="eyebrow">Live swap workflow</div>
+                <h2>Quote and execute</h2>
+              </div>
+              <p>Construye, firma y envía solo cuando el setup operativo y la oportunidad ya pasaron los filtros de realidad.</p>
+            </div>
 
             <div class="field-grid">
               <label>
@@ -1249,20 +1384,30 @@
           </div>
 
           <div class="panel">
-            <div class="eyebrow">Wallet and backend readiness</div>
-            <h2>Execution status</h2>
+            <div class="section-head">
+              <div>
+                <div class="eyebrow">Wallet and backend readiness</div>
+                <h2>Execution status</h2>
+              </div>
+              <p>Este bloque te dice si el sistema realmente puede liquidar o si todavía estás en un modo de preparación y señalización.</p>
+            </div>
             <div class="actions" style="margin-top:0; margin-bottom:12px;">
               <button class="btn warn" id="killSwitchBtn">Kill switch off</button>
             </div>
             <div class="stack" id="walletStatus" style="margin-bottom:12px;"></div>
-            <div class="stack" id="executionStatus"></div>
+            <div class="status-matrix" id="executionStatus"></div>
           </div>
         </div>
 
         <div class="layout two-col" style="margin-top:14px;">
           <div class="panel">
-            <div class="eyebrow">Paper simulation</div>
-            <h2>Guardrail math</h2>
+            <div class="section-head">
+              <div>
+                <div class="eyebrow">Paper simulation</div>
+                <h2>Guardrail math</h2>
+              </div>
+              <p>Simula cómo se degrada una ruta cuando aparecen spread insuficiente, costos o umbrales de beneficio demasiado agresivos.</p>
+            </div>
             <div class="field-grid">
               <label>
                 Capital USD
@@ -1284,8 +1429,13 @@
           </div>
 
           <div class="panel">
-            <div class="eyebrow">Execution log</div>
-            <h2>Recent live attempts</h2>
+            <div class="section-head">
+              <div>
+                <div class="eyebrow">Execution log</div>
+                <h2>Recent live attempts</h2>
+              </div>
+              <p>Lee aquí el comportamiento reciente del terminal para detectar patrones de fallo antes de insistir con más capital.</p>
+            </div>
             <div class="table-wrap">
               <table>
                 <thead>
@@ -1304,8 +1454,13 @@
         </div>
 
         <div class="panel" style="margin-top:14px;">
-          <div class="eyebrow">Trade ledger</div>
-          <h2>Realized and demo results</h2>
+          <div class="section-head">
+            <div>
+              <div class="eyebrow">Trade ledger</div>
+              <h2>Realized and demo results</h2>
+            </div>
+            <p>La contabilidad del operador: compara resultados demo, intentos reales, firmas y razones de fallo en un solo registro.</p>
+          </div>
           <div class="table-wrap">
             <table>
               <thead>
@@ -1332,10 +1487,27 @@
           Stage 4 and 5 now expose a real planner for Base, Arbitrum, BNB Chain, Ethereum and the current Solana live path. Flash loans here are simulation and orchestration planning, not deployed atomic contracts yet.
         </div>
 
+        <div class="cockpit-hero">
+          <div class="cockpit-head">
+            <div>
+              <div class="eyebrow">Advanced command</div>
+              <h2>Institutional planner board</h2>
+              <p>Este es el cerebro estratégico: combina planner multi-chain, readiness EVM, lanes privadas, adapters y calibración shadow.</p>
+            </div>
+            <div class="cockpit-side" id="advancedHeroSignal"></div>
+          </div>
+          <div class="matrix-grid" id="advancedHeroStats"></div>
+        </div>
+
         <div class="layout two-col">
-          <div class="panel">
-            <div class="eyebrow">Stage 4</div>
-            <h2>Multi-chain planner</h2>
+          <div class="panel terminal-shell">
+            <div class="section-head">
+              <div>
+                <div class="eyebrow">Stage 4</div>
+                <h2>Multi-chain planner</h2>
+              </div>
+              <p>Construye el mejor plan posible para una oportunidad: capital, modo, lane privada, provider y adaptación de mercado.</p>
+            </div>
 
             <div class="field-grid">
               <label>
@@ -1367,17 +1539,27 @@
           </div>
 
           <div class="panel">
-            <div class="eyebrow">Stage 5</div>
-            <h2>Wallet and provider readiness</h2>
+            <div class="section-head">
+              <div>
+                <div class="eyebrow">Stage 5</div>
+                <h2>Wallet and provider readiness</h2>
+              </div>
+              <p>La matriz operativa de conectividad, despliegue y cobertura que determina qué tan cerca estás de una ruta ejecutable en serio.</p>
+            </div>
             <div class="stack" id="evmWalletStatus" style="margin-bottom:12px;"></div>
-            <div class="stack" id="advancedStatus"></div>
+            <div class="status-matrix" id="advancedStatus"></div>
           </div>
         </div>
 
         <div class="layout two-col" style="margin-top:14px;">
           <div class="panel">
-            <div class="eyebrow">Planner board</div>
-            <h2>Top actionable advanced routes</h2>
+            <div class="section-head">
+              <div>
+                <div class="eyebrow">Planner board</div>
+                <h2>Top actionable advanced routes</h2>
+              </div>
+              <p>Tabla de priorización para ver rápidamente qué rutas merecen simulación profunda o wiring técnico adicional.</p>
+            </div>
             <div class="table-wrap">
               <table>
                 <thead>
@@ -1397,15 +1579,25 @@
           </div>
 
           <div class="panel">
-            <div class="eyebrow">Execution infrastructure</div>
-            <h2>Flash loans, private lanes, and adapters</h2>
+            <div class="section-head">
+              <div>
+                <div class="eyebrow">Execution infrastructure</div>
+                <h2>Flash loans, private lanes, and adapters</h2>
+              </div>
+              <p>El mapa institucional del stack EVM necesario para convertir una oportunidad en una ruta protegida y con capital eficiente.</p>
+            </div>
             <div class="cards" id="providerCards"></div>
           </div>
         </div>
 
         <div class="panel" style="margin-top:14px;">
-          <div class="eyebrow">Stage 6</div>
-          <h2>Shadow execution calibration</h2>
+          <div class="section-head">
+            <div>
+              <div class="eyebrow">Stage 6</div>
+              <h2>Shadow execution calibration</h2>
+            </div>
+            <p>La zona donde medimos qué tan cerca está la simulación del mercado real y cuánto edge sobrevive al paso del tiempo.</p>
+          </div>
           <div class="table-wrap">
             <table>
               <thead>
@@ -1620,6 +1812,103 @@
         "Live executors": "shield",
       };
       return names[label] || "grid";
+    }
+
+    function renderExecutionHeroPanel() {
+      const status = state.executionStatus || {};
+      const risk = state.riskStatus || {};
+      const topRoute = topReadyOpportunity();
+      const walletConnected = Boolean(state.walletPublicKey);
+      const liveState = status.canExecuteLive
+        ? "Live lane armed"
+        : walletConnected
+          ? "Wallet-assisted execution"
+          : "Guarded execution";
+      const blocker = (status.reasons || [])[0] || "No blocker reported.";
+      const series = [
+        Number(state.stats.readyOpportunityCount || 0),
+        Number(state.stats.highQualityOpportunityCount || 0),
+        Number(state.stats.planReadyCount || 0),
+        Number(state.stats.realizedNetUsd || 0),
+        Number(state.stats.estimatedNetUsd || 0) / 40
+      ];
+      $("#executionHeroSignal").innerHTML = `
+        <div class="card">
+          <div class="eyebrow">Execution pulse</div>
+          <h3>${liveState}</h3>
+          <div class="muted">${blocker}</div>
+          ${sparklineSvg(series)}
+        </div>
+      `;
+      $("#executionHeroStats").innerHTML = `
+        <div class="terminal-stat">
+          ${iconChip("wallet")}
+          <small class="muted">Wallet state</small>
+          <strong>${walletConnected ? "Connected" : "Standby"}</strong>
+        </div>
+        <div class="terminal-stat">
+          ${iconChip("route")}
+          <small class="muted">Best executable route</small>
+          <strong class="${numericToneClass(topRoute?.net || 0)}">${topRoute ? money(topRoute.net) : "-"}</strong>
+        </div>
+        <div class="terminal-stat">
+          ${iconChip("shield")}
+          <small class="muted">Kill switch</small>
+          <strong>${risk.killSwitch ? "Blocked" : "Armed"}</strong>
+        </div>
+        <div class="terminal-stat">
+          ${iconChip("pulse")}
+          <small class="muted">Recent attempts</small>
+          <strong>${allExecutions().length}</strong>
+        </div>
+      `;
+    }
+
+    function renderAdvancedHeroPanel() {
+      const planner = state.advancedPlanner || { summary: {}, items: [] };
+      const selected = selectedAdvancedItem();
+      const polygonDeployment = executorDeployment("polygon");
+      const summary = planner.summary || {};
+      const signal = selected
+        ? `${selected.chainName} ${selected.symbol} | ${selected.statusLabel}`
+        : "No advanced route selected";
+      const series = [
+        Number(summary.totalCandidates || 0),
+        Number(summary.planReadyCount || 0),
+        Number(summary.simReadyCount || 0),
+        Number(summary.privateLaneReadyCount || 0),
+        Number(summary.adapterCoverageReadyCount || 0),
+      ];
+      $("#advancedHeroSignal").innerHTML = `
+        <div class="card">
+          <div class="eyebrow">Planner pulse</div>
+          <h3>${signal}</h3>
+          <div class="muted">${selected ? `Required ${money(selected.requiredCapitalUsd || 0)} | Planner net ${money(selected.projectedNetUsd || 0)}` : "Select a route to inspect the full execution stack."}</div>
+          ${sparklineSvg(series)}
+        </div>
+      `;
+      $("#advancedHeroStats").innerHTML = `
+        <div class="matrix-card">
+          ${iconChip("radar")}
+          <small class="muted">Candidates tracked</small>
+          <strong>${summary.totalCandidates || 0}</strong>
+        </div>
+        <div class="matrix-card">
+          ${iconChip("flash")}
+          <small class="muted">Flash-loan ready</small>
+          <strong>${summary.flashLoanReadyCount || 0}</strong>
+        </div>
+        <div class="matrix-card">
+          ${iconChip("shield")}
+          <small class="muted">Private-lane ready</small>
+          <strong>${summary.privateLaneReadyCount || 0}</strong>
+        </div>
+        <div class="matrix-card">
+          ${iconChip("spark")}
+          <small class="muted">Polygon executor</small>
+          <strong>${polygonDeployment ? "Deployed" : "Pending"}</strong>
+        </div>
+      `;
     }
 
     function filteredOpportunities() {
@@ -2574,6 +2863,7 @@
       $("#demoTopBtn").disabled = !topReadyOpportunity();
       $("#killSwitchBtn").textContent = risk?.killSwitch ? "Kill switch on" : "Kill switch off";
       $("#killSwitchBtn").className = risk?.killSwitch ? "btn" : "btn warn";
+      renderExecutionHeroPanel();
 
       $("#walletStatus").innerHTML = `
         <div class="card">
@@ -2756,7 +3046,7 @@
 
     function renderQuote(payload, errorMessage) {
       if (errorMessage) {
-        $("#quoteResult").innerHTML = `<div class="card"><strong>Quote failed</strong><div class="muted">${errorMessage}</div></div>`;
+        $("#quoteResult").innerHTML = `<div class="timeline-card"><div class="eyebrow">Quote failed</div><h3>Execution quote rejected</h3><div class="muted">${errorMessage}</div></div>`;
         return;
       }
 
@@ -2765,7 +3055,7 @@
         ? `<p>Wallet tx: <strong>built and ready to sign</strong></p>`
         : `<p>Wallet tx: <strong>quote only</strong></p>`;
       $("#quoteResult").innerHTML = `
-        <div class="card">
+        <div class="timeline-card">
           <div class="eyebrow">${payload.swapBuild ? "Wallet build" : "Quote"}</div>
           <h3>${payload.inputToken.symbol} -> ${payload.outputToken.symbol}</h3>
           <p>In: <strong>${payload.amountIn}</strong></p>
@@ -2781,11 +3071,11 @@
 
     function renderSimulation(payload, errorMessage) {
       if (errorMessage) {
-        $("#simResult").innerHTML = `<div class="card"><strong>Simulation failed</strong><div class="muted">${errorMessage}</div></div>`;
+        $("#simResult").innerHTML = `<div class="timeline-card"><div class="eyebrow">Simulation failed</div><h3>Guardrail engine rejected the route</h3><div class="muted">${errorMessage}</div></div>`;
         return;
       }
       $("#simResult").innerHTML = `
-        <div class="card">
+        <div class="timeline-card">
           <div class="eyebrow">Simulation</div>
           <h3>${payload.status.toUpperCase()}</h3>
           <p>Gross ${money(payload.gross)} | Costs ${money(payload.costs)} | Net <strong class="${payload.net >= 0 ? "positive" : "negative"}">${money(payload.net)}</strong></p>
@@ -2812,6 +3102,7 @@
       } else {
         state.selectedAdvancedOpportunityId = null;
       }
+      renderAdvancedHeroPanel();
 
       const selected = selectedAdvancedItem();
       $("#connectEvmBtn").textContent = state.evmWalletAddress ? "Disconnect EVM wallet" : "Connect EVM wallet";
