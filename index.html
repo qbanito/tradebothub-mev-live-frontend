@@ -858,6 +858,7 @@
       advancedPlanner: { summary: {}, items: [] },
       flashLoanProviders: [],
       advancedPlan: null,
+      advancedSimulation: null,
       selectedAdvancedOpportunityId: null,
       validations: {},
       lastQuote: null,
@@ -1493,7 +1494,41 @@
       const planCard = state.advancedPlan?.opportunityId === state.selectedAdvancedOpportunityId
         ? state.advancedPlan
         : selected;
-      if (planCard) {
+      const activeSimulation = state.advancedSimulation?.opportunityId === state.selectedAdvancedOpportunityId
+        ? state.advancedSimulation
+        : null;
+      if (planCard && activeSimulation?.simulation) {
+        const simulation = activeSimulation.simulation;
+        const defaultScenario = simulation.defaultScenario || {};
+        const scenarios = (simulation.scenarios || []).map((item) => `
+          <div>
+            <strong>${item.label}:</strong>
+            <span class="${Number(item.netUsd || 0) >= 0 ? "positive" : "negative"}">${money(item.netUsd || 0)}</span>
+            | Penalty ${money(item.totalPenaltyUsd || 0)}
+            | Risk ${pct(item.failRiskPct || 0)}
+            | Impact ${pct(item.priceImpactPct || 0)}
+            | ${item.status}
+          </div>
+        `).join("");
+        const realismWarnings = (simulation.realismWarnings || []).length
+          ? simulation.realismWarnings.map((item) => `<div class="pill off">${item}</div>`).join("")
+          : `<div class="pill">No extra realism warnings</div>`;
+        const liveValidation = simulation.liveValidation
+          ? `<p>Live validation: <strong>${simulation.liveValidation.statusLabel}</strong> | Round-trip net <strong class="${Number(simulation.liveValidation.roundTripNetUsd || 0) >= 0 ? "positive" : "negative"}">${money(simulation.liveValidation.roundTripNetUsd || 0)}</strong> | Max impact <strong>${pct(simulation.liveValidation.maxPriceImpactPct || 0)}</strong></p>`
+          : `<p>Live validation: <strong>Planner-only</strong></p>`;
+        $("#advancedPlanResult").innerHTML = `
+          <div class="card">
+            <div class="eyebrow">Advanced simulation | ${simulation.referenceSource}</div>
+            <h3>${planCard.symbol} on ${planCard.chainName}</h3>
+            <p>Status: <strong>${activeSimulation.entry?.status || defaultScenario.status || "simulated"}</strong> | Confidence: <strong>${simulation.confidenceLabel}</strong> (${pct(simulation.confidencePct || 0)})</p>
+            <p>Capital source: <strong>${planCard.capitalSource}</strong> | Provider: <strong>${planCard.flashLoanProvider?.provider || "None"}</strong></p>
+            <p>Default realistic net: <strong class="${Number(defaultScenario.netUsd || 0) >= 0 ? "positive" : "negative"}">${money(defaultScenario.netUsd || 0)}</strong></p>
+            ${liveValidation}
+            <div class="stack">${scenarios}</div>
+            <div class="stack" style="margin-top:12px;">${realismWarnings}</div>
+          </div>
+        `;
+      } else if (planCard) {
         const steps = (planCard.steps || []).map((item) => `<div><strong>${item.title}:</strong> ${item.detail}</div>`).join("");
         const warnings = (planCard.warnings || []).length
           ? (planCard.warnings || []).map((item) => `<div class="pill off">${item}</div>`).join("")
@@ -1670,6 +1705,9 @@
           state.selectedAdvancedOpportunityId = state.advancedPlanner.items[0].opportunityId;
         } else {
           state.selectedAdvancedOpportunityId = null;
+        }
+        if (state.advancedSimulation?.opportunityId !== state.selectedAdvancedOpportunityId) {
+          state.advancedSimulation = null;
         }
         renderAdvancedView();
       } catch (error) {
@@ -1868,6 +1906,7 @@
           body: JSON.stringify(body)
         });
         state.advancedPlan = payload.plan;
+        state.advancedSimulation = null;
         renderAdvancedView();
       } catch (error) {
         $("#advancedPlanResult").innerHTML = `<div class="card"><strong>Advanced plan failed</strong><div class="muted">${error.message || String(error)}</div></div>`;
@@ -1894,18 +1933,16 @@
           body: JSON.stringify(body)
         });
         state.advancedPlan = payload.plan;
-        $("#advancedPlanResult").innerHTML = `
-          <div class="card">
-            <div class="eyebrow">Advanced simulation</div>
-            <h3>${payload.plan.symbol} on ${payload.plan.chainName}</h3>
-            <p>Status: <strong>${payload.entry.status}</strong></p>
-            <p>Capital source: <strong>${payload.plan.capitalSource}</strong></p>
-            <p>Simulated net: <strong class="${Number(payload.entry.realizedNetUsd || 0) >= 0 ? "positive" : "negative"}">${money(payload.entry.realizedNetUsd || 0)}</strong></p>
-            <p>Provider: <strong>${payload.plan.flashLoanProvider?.provider || "None"}</strong></p>
-          </div>
-        `;
+        state.advancedSimulation = {
+          opportunityId,
+          plan: payload.plan,
+          simulation: payload.simulation,
+          entry: payload.entry
+        };
+        renderAdvancedView();
         await loadAll();
       } catch (error) {
+        state.advancedSimulation = null;
         $("#advancedPlanResult").innerHTML = `<div class="card"><strong>Advanced simulation failed</strong><div class="muted">${error.message || String(error)}</div></div>`;
       }
     }
