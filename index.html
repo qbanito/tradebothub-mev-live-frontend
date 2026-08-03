@@ -1757,6 +1757,7 @@
   </aside>
 
   <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.98.4/lib/index.iife.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
   <script src="config.js"></script>
   <script>
     const API = (window.TRADEBOTHUB_CONFIG?.API_BASE_URL || "").replace(/\/$/, "");
@@ -1789,6 +1790,7 @@
       validations: {},
       lastQuote: null,
       builtSwap: null,
+      builtWalletAction: null,
       lastWalletError: null,
       walletPublicKey: null,
       walletLabel: null,
@@ -1810,6 +1812,13 @@
     const validationFor = (item) => state.validations[item.id] || null;
     const executorFor = (chainId) => (state.capabilities || []).find((item) => item.chainId === chainId) || null;
     const topReadyOpportunity = () => state.opportunities.find((item) => item.executionSupported && item.status === "ready") || null;
+    const POLYGON_CHAIN_CONFIG = {
+      chainId: "0x89",
+      chainName: "Polygon",
+      nativeCurrency: { name: "POL", symbol: "POL", decimals: 18 },
+      rpcUrls: ["https://polygon-rpc.com"],
+      blockExplorerUrls: ["https://polygon.blockscout.com", "https://polygonscan.com"]
+    };
 
     function loadWatchlistIds() {
       try {
@@ -1975,7 +1984,7 @@
       const status = state.executionStatus || {};
       const risk = state.riskStatus || {};
       const topRoute = topReadyOpportunity();
-      const walletConnected = Boolean(state.walletPublicKey);
+      const walletConnected = anyWalletConnected();
       const liveState = status.canExecuteLive
         ? "Live lane armed"
         : walletConnected
@@ -2292,7 +2301,7 @@
       );
       $("#slippageBps").value = String(state.executionStatus?.defaults?.slippageBps || 50);
       state.lastQuote = null;
-      state.builtSwap = null;
+      clearBuiltWalletArtifacts();
       state.lastWalletError = null;
       renderQuote(null, `Execution prefilled from ${item.symbol} on ${item.buyDex} -> ${item.sellDex}. This sends the current wallet swap path, not a full atomic arbitrage bundle yet.`);
       renderExecutionStatus();
@@ -2562,6 +2571,61 @@
       return Boolean(state.walletPublicKey || state.evmWalletAddress);
     }
 
+    function clearBuiltWalletArtifacts() {
+      state.builtSwap = null;
+      state.builtWalletAction = null;
+    }
+
+    function selectedPolygonPlan() {
+      const selected = selectedAdvancedItem();
+      if (selected?.chainId === "polygon") {
+        return selected;
+      }
+      return (state.advancedPlanner?.items || []).find((item) => item.chainId === "polygon") || null;
+    }
+
+    function normalizeAddress(value) {
+      return String(value || "").trim().toLowerCase();
+    }
+
+    function ethersReady() {
+      return Boolean(window.ethers?.Interface);
+    }
+
+    async function ensureEvmChain(targetChainHex, options = {}) {
+      const wallet = getEvmProvider();
+      if (!wallet?.provider?.request) {
+        throw new Error("No compatible EVM wallet found in this browser.");
+      }
+      const currentChainHex = String(
+        state.evmChainHex || await wallet.provider.request({ method: "eth_chainId" }) || ""
+      ).toLowerCase();
+      const normalizedTarget = String(targetChainHex || "").toLowerCase();
+      if (currentChainHex === normalizedTarget) {
+        return currentChainHex;
+      }
+      try {
+        await wallet.provider.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: targetChainHex }]
+        });
+      } catch (error) {
+        if (error?.code === 4902 && options.addChainConfig) {
+          await wallet.provider.request({
+            method: "wallet_addEthereumChain",
+            params: [options.addChainConfig]
+          });
+        } else {
+          throw error;
+        }
+      }
+      const updatedChainHex = await wallet.provider.request({ method: "eth_chainId" });
+      state.evmChainHex = updatedChainHex;
+      renderExecutionStatus();
+      renderAdvancedView();
+      return updatedChainHex;
+    }
+
     async function connectWallet(options = {}) {
       const { allowEvmFallback = true } = options;
       const wallet = getWalletProvider();
@@ -2581,6 +2645,7 @@
       }
       state.walletPublicKey = publicKey;
       state.walletLabel = wallet.label;
+      clearBuiltWalletArtifacts();
       state.lastWalletError = null;
       renderExecutionStatus();
       return wallet.provider;
@@ -2596,7 +2661,7 @@
       }
       state.walletPublicKey = null;
       state.walletLabel = null;
-      state.builtSwap = null;
+      clearBuiltWalletArtifacts();
       state.lastWalletError = null;
       renderExecutionStatus();
     }
@@ -2615,6 +2680,7 @@
       state.evmWalletAddress = address;
       state.evmWalletLabel = wallet.label;
       state.evmChainHex = chainHex;
+      clearBuiltWalletArtifacts();
       state.lastWalletError = null;
       renderExecutionStatus();
       renderAdvancedView();
@@ -2624,6 +2690,7 @@
       state.evmWalletAddress = null;
       state.evmWalletLabel = null;
       state.evmChainHex = null;
+      clearBuiltWalletArtifacts();
       state.lastWalletError = null;
       renderExecutionStatus();
       renderAdvancedView();
@@ -3265,9 +3332,24 @@
       const polygonCapability = executorCapability("polygon");
       const polygonDeployment = polygonCapability?.deployment || null;
       const anyConnectedNow = anyWalletConnected();
+      const sendReady = walletConnected
+        ? Boolean(state.builtSwap)
+        : evmConnected
+          ? Boolean(state.builtWalletAction?.walletType === "evm" && state.builtWalletAction?.txRequest)
+          : false;
       $("#connectWalletBtn").textContent = anyConnectedNow ? "Disconnect wallet" : "Connect wallet";
-      $("#buildWalletBtn").disabled = !walletConnected;
-      $("#sendWalletBtn").disabled = !walletConnected || !state.builtSwap;
+      $("#buildWalletBtn").disabled = !anyConnectedNow;
+      $("#sendWalletBtn").disabled = !sendReady;
+      $("#buildWalletBtn").textContent = walletConnected
+        ? "Build for wallet"
+        : evmConnected
+          ? "Build Polygon action"
+          : "Build for wallet";
+      $("#sendWalletBtn").textContent = walletConnected
+        ? "Send with wallet"
+        : evmConnected
+          ? "Send with MetaMask"
+          : "Send with wallet";
       $("#demoTopBtn").disabled = !topReadyOpportunity();
       $("#killSwitchBtn").textContent = risk?.killSwitch ? "Kill switch on" : "Kill switch off";
       $("#killSwitchBtn").className = risk?.killSwitch ? "btn" : "btn warn";
@@ -3293,7 +3375,7 @@
           <div class="muted">${
             state.lastWalletError || (
               polygonDeployment
-                ? `Polygon executor deployed at ${shortEvmAddress(polygonDeployment.contractAddress)}. Direct wallet build/sign here is still Solana-first while the EVM router flow is being finished.`
+                ? `Polygon executor deployed at ${shortEvmAddress(polygonDeployment.contractAddress)}. Esta consola ya puede preparar acciones de wiring con MetaMask, pero la transaccion atomica final todavia necesita templates de calldata por ruta.`
                 : "Direct wallet execution is currently Solana-only in this view."
             )
           }</div>
@@ -3311,7 +3393,7 @@
         : evmConnected
           ? (
             polygonDeployment
-              ? `MetaMask ya esta conectado. Polygon ya tiene contrato desplegado en ${shortEvmAddress(polygonDeployment.contractAddress)}, aunque la firma directa en esta vista todavia sigue centrada en Solana.`
+              ? `MetaMask ya esta conectado. Polygon ya tiene contrato desplegado en ${shortEvmAddress(polygonDeployment.contractAddress)} y esta vista ya puede preparar acciones de wiring sobre ese executor.`
               : "MetaMask ya esta conectado para flujos EVM y planner. La firma directa en esta vista sigue centrada en Solana."
           )
           : (
@@ -3325,7 +3407,7 @@
         : evmConnected
           ? (
             polygonDeployment
-              ? "MetaMask ya responde en el frontend y Polygon ya tiene un executor desplegado. El siguiente cableado pendiente es construir la transaccion EVM final desde esta vista."
+              ? "MetaMask ya responde en el frontend y Polygon ya tiene un executor desplegado. Desde aqui ya podemos preparar wiring de Polygon; la transaccion atomica final sigue dependiendo del calldata exacto de cada ruta."
               : "MetaMask ya responde en el frontend, pero la ejecucion directa de swaps en esta vista todavia requiere Phantom, Backpack o Solflare."
           )
           : (
@@ -3481,6 +3563,43 @@
           <p>Price impact: <strong>${payload.priceImpactPct}%</strong></p>
           ${buildStatus}
           <div class="muted">Route: ${route}</div>
+        </div>
+      `;
+    }
+
+    function renderEvmAction(payload, errorMessage) {
+      if (errorMessage) {
+        $("#quoteResult").innerHTML = `<div class="timeline-card"><div class="eyebrow">Polygon build failed</div><h3>MetaMask action rejected</h3><div class="muted">${errorMessage}</div></div>`;
+        return;
+      }
+      const plan = payload?.plan || {};
+      const deployment = payload?.deployment || {};
+      const targets = payload?.targetAddresses || [];
+      const blockers = payload?.blockers || [];
+      const nextSteps = payload?.nextSteps || [];
+      const targetSummary = targets.length
+        ? `<div class="muted">Targets: ${targets.map((item) => `<span class="mono">${shortEvmAddress(item)}</span>`).join(" | ")}</div>`
+        : "";
+      const blockerHtml = blockers.length
+        ? `<div class="stack" style="margin-top:12px;">${blockers.map((item) => `<div class="pill off">${item}</div>`).join("")}</div>`
+        : "";
+      const nextStepHtml = nextSteps.length
+        ? `<div class="stack" style="margin-top:12px;">${nextSteps.map((item) => `<div class="pill warn">${item}</div>`).join("")}</div>`
+        : "";
+      const buildState = payload?.txRequest
+        ? "ready to sign"
+        : payload?.statusLabel || "blocked";
+      $("#quoteResult").innerHTML = `
+        <div class="timeline-card">
+          <div class="eyebrow">${payload.kind === "allowlist-targets" ? "Polygon wiring build" : "Polygon execution build"}</div>
+          <h3>${plan.symbol || "Polygon route"} | ${plan.statusLabel || "plan"}</h3>
+          <p>Wallet: <strong>${state.evmWalletLabel || "MetaMask"}</strong> | Chain: <strong>${evmChainLabel(state.evmChainHex)}</strong></p>
+          <p>Action: <strong>${payload.label || "Prepared action"}</strong></p>
+          <p>Build state: <strong>${buildState}</strong></p>
+          <p>Executor: <span class="mono">${deployment.contractAddress || "-"}</span></p>
+          ${targetSummary}
+          ${blockerHtml}
+          ${nextStepHtml}
         </div>
       `;
     }
@@ -3905,8 +4024,124 @@
       }
     }
 
+    async function buildEvmWalletAction() {
+      if (!state.evmWalletAddress) {
+        await connectEvmWallet();
+      }
+      if (!ethersReady()) {
+        throw new Error("The EVM encoder library did not load in the frontend.");
+      }
+
+      const plan = selectedPolygonPlan();
+      if (!plan) {
+        throw new Error("No Polygon advanced route is selected yet. Open Advanced and pick a Polygon candidate first.");
+      }
+      const deployment = executorDeployment("polygon");
+      if (!deployment?.contractAddress) {
+        throw new Error("Polygon executor deployment metadata is missing.");
+      }
+      const preflight = plan.executionPreflight || {};
+      if (String(plan.chainId || "").toLowerCase() !== "polygon") {
+        throw new Error("The selected advanced route is not on Polygon.");
+      }
+
+      await ensureEvmChain(POLYGON_CHAIN_CONFIG.chainId, { addChainConfig: POLYGON_CHAIN_CONFIG });
+
+      if (preflight.missingTargetConfig?.length) {
+        const blockers = preflight.missingTargetConfig.map((item) =>
+          `Configure ${item.envVar || item.dexLabel} before preparing a Polygon executor action.`
+        );
+        state.builtWalletAction = {
+          walletType: "evm",
+          kind: "blocked-execution",
+          label: "Polygon route still missing target config",
+          plan,
+          deployment,
+          blockers,
+          nextSteps: ["Set the missing router env vars in Render and refresh planner metadata."],
+          txRequest: null,
+          statusLabel: "blocked"
+        };
+        state.builtSwap = null;
+        state.lastWalletError = null;
+        renderEvmAction(state.builtWalletAction);
+        renderExecutionStatus();
+        return;
+      }
+
+      const ownerMatches = normalizeAddress(state.evmWalletAddress) === normalizeAddress(deployment.owner);
+      if ((preflight.missingAllowlistTargets || []).length) {
+        if (!ownerMatches) {
+          throw new Error(`The connected wallet is not the Polygon executor owner. Connect ${deployment.owner} in MetaMask to allowlist route targets.`);
+        }
+        const targetAddresses = (preflight.missingAllowlistTargets || [])
+          .map((item) => item.targetAddress)
+          .filter(Boolean);
+        const iface = new window.ethers.Interface([
+          "function setApprovedTargets(address[] targets, bool approved)"
+        ]);
+        const data = iface.encodeFunctionData("setApprovedTargets", [targetAddresses, true]);
+        state.builtWalletAction = {
+          walletType: "evm",
+          kind: "allowlist-targets",
+          label: "Allowlist Polygon route targets",
+          plan,
+          deployment,
+          targetAddresses,
+          blockers: [],
+          nextSteps: [
+            "Sign this MetaMask transaction to approve the route targets in the Polygon executor.",
+            "After confirmation, refresh planner data and rebuild the route."
+          ],
+          statusLabel: "ready",
+          txRequest: {
+            from: state.evmWalletAddress,
+            to: deployment.contractAddress,
+            data,
+            value: "0x0"
+          }
+        };
+        state.builtSwap = null;
+        state.lastWalletError = null;
+        renderEvmAction(state.builtWalletAction);
+        renderExecutionStatus();
+        return;
+      }
+
+      const blockers = [];
+      if (!plan.adapterCoverageReady) {
+        blockers.push("At least one Polygon route leg still needs a production adapter template.");
+      }
+      if (!plan.privateSubmitReady) {
+        blockers.push("A protected private lane is not fully wired for this route yet.");
+      }
+      blockers.push("The atomic executeFlashLoan calldata for this exact Polygon route is not generated in the frontend yet.");
+      state.builtWalletAction = {
+        walletType: "evm",
+        kind: "blocked-execution",
+        label: "Polygon route reviewed",
+        plan,
+        deployment,
+        blockers,
+        nextSteps: [
+          "Finish route-specific calldata templates for QuickSwap/Uniswap on Polygon.",
+          "Keep using Advanced to verify preflight until the route becomes executor-ready."
+        ],
+        txRequest: null,
+        statusLabel: "blocked"
+      };
+      state.builtSwap = null;
+      state.lastWalletError = null;
+      renderEvmAction(state.builtWalletAction);
+      renderExecutionStatus();
+    }
+
     async function buildWalletTransaction() {
       try {
+        if (!state.walletPublicKey && state.evmWalletAddress) {
+          await buildEvmWalletAction();
+          return;
+        }
         if (!state.walletPublicKey) {
           await connectWallet({ allowEvmFallback: false });
         }
@@ -3921,7 +4156,9 @@
             slippageBps: $("#slippageBps").value
           })
         });
+        state.builtWalletAction = null;
         state.builtSwap = payload;
+        state.lastWalletError = null;
         renderQuote(payload);
         renderExecutionStatus();
       } catch (error) {
@@ -3931,8 +4168,64 @@
       }
     }
 
+    async function sendWithEvmWallet() {
+      const wallet = getEvmProvider();
+      if (!wallet?.provider?.request) {
+        throw new Error("No compatible EVM wallet found in this browser.");
+      }
+      if (!state.evmWalletAddress) {
+        await connectEvmWallet();
+      }
+      if (!state.builtWalletAction) {
+        await buildEvmWalletAction();
+      }
+      if (!state.builtWalletAction?.txRequest) {
+        throw new Error(
+          state.builtWalletAction?.blockers?.[0]
+            || "No executable Polygon wallet action is prepared yet."
+        );
+      }
+
+      await ensureEvmChain(POLYGON_CHAIN_CONFIG.chainId, { addChainConfig: POLYGON_CHAIN_CONFIG });
+      const txHash = await wallet.provider.request({
+        method: "eth_sendTransaction",
+        params: [state.builtWalletAction.txRequest]
+      });
+      if (!txHash) {
+        throw new Error("MetaMask returned no transaction hash.");
+      }
+
+      const plan = state.builtWalletAction.plan || {};
+      state.clientExecutions.unshift({
+        createdAt: new Date().toISOString(),
+        inputSymbol: plan.symbol || "Polygon",
+        outputSymbol: state.builtWalletAction.kind === "allowlist-targets" ? "allowlist" : "executor",
+        status: "submitted",
+        broadcastMode: "wallet-evm",
+        mode: "wallet-evm",
+        signature: txHash
+      });
+      state.clientExecutions = state.clientExecutions.slice(0, 50);
+      state.lastWalletError = null;
+      $("#quoteResult").innerHTML = `
+        <div class="card">
+          <div class="eyebrow">MetaMask transaction sent</div>
+          <h3>${state.builtWalletAction.label}</h3>
+          <p>Status: <strong>submitted</strong></p>
+          <p>Hash: <span class="mono">${txHash}</span></p>
+        </div>
+      `;
+      await loadAll();
+      renderExecutions();
+      renderOverviewExecutions();
+    }
+
     async function sendWithWallet() {
       try {
+        if (!state.walletPublicKey && state.evmWalletAddress) {
+          await sendWithEvmWallet();
+          return;
+        }
         const wallet = getWalletProvider();
         if (!wallet?.provider?.signAndSendTransaction) {
           throw new Error("No compatible Solana wallet found in this browser.");
@@ -4009,7 +4302,11 @@
       } catch (error) {
         state.lastWalletError = error.message || String(error);
         renderExecutionStatus();
-        renderQuote(null, error.message || String(error));
+        if (state.evmWalletAddress && !state.walletPublicKey) {
+          renderEvmAction(null, error.message || String(error));
+        } else {
+          renderQuote(null, error.message || String(error));
+        }
       }
     }
 
