@@ -1927,18 +1927,31 @@
         if (preferFlashLoan != null) {
           body.preferFlashLoan = preferFlashLoan;
         }
-        const payload = await api("/api/opportunities/advanced-simulate", {
+        const response = await fetch(API + "/api/opportunities/advanced-simulate", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify(body)
         });
-        state.advancedPlan = payload.plan;
-        state.advancedSimulation = {
-          opportunityId,
-          plan: payload.plan,
-          simulation: payload.simulation,
-          entry: payload.entry
-        };
+        const payload = await response.json().catch(() => ({}));
+        if (payload.plan) {
+          state.advancedPlan = payload.plan;
+        }
+        if (payload.simulation) {
+          state.advancedSimulation = {
+            opportunityId,
+            plan: payload.plan || state.advancedPlan,
+            simulation: payload.simulation,
+            entry: payload.entry || null
+          };
+          renderAdvancedView();
+        }
+        if (!response.ok) {
+          if (!payload.simulation) {
+            throw new Error(payload.error || String(response.status));
+          }
+          await loadAll();
+          return;
+        }
         renderAdvancedView();
         await loadAll();
       } catch (error) {
