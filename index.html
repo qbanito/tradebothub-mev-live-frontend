@@ -883,8 +883,8 @@
           </div>
 
           <div class="panel">
-            <div class="eyebrow">Flash providers</div>
-            <h2>Mapped liquidity sources</h2>
+            <div class="eyebrow">Execution infrastructure</div>
+            <h2>Flash loans, private lanes, and adapters</h2>
             <div class="cards" id="providerCards"></div>
           </div>
         </div>
@@ -936,6 +936,8 @@
       strategies: [],
       advancedPlanner: { summary: {}, items: [] },
       flashLoanProviders: [],
+      evmPrivateLanes: [],
+      evmMarketAdapters: [],
       shadowExecutions: { summary: {}, items: [], pending: [] },
       advancedPlan: null,
       advancedSimulation: null,
@@ -2095,6 +2097,16 @@
           <div class="muted">${(state.flashLoanProviders || []).filter((item) => item.status === "mapped").length} mapped | ${(state.flashLoanProviders || []).filter((item) => item.status !== "mapped").length} research</div>
         </div>
         <div class="card">
+          <div class="eyebrow">Private lanes</div>
+          <h3>${planner.summary?.privateLaneReadyCount || 0} route-ready</h3>
+          <div class="muted">${(state.evmPrivateLanes || []).filter((item) => item.status === "mapped").length} mapped | ${(state.evmPrivateLanes || []).filter((item) => item.status !== "mapped").length} research</div>
+        </div>
+        <div class="card">
+          <div class="eyebrow">DEX adapters</div>
+          <h3>${planner.summary?.adapterCoverageReadyCount || 0} covered</h3>
+          <div class="muted">${(state.evmMarketAdapters || []).filter((item) => item.status === "mapped").length} mapped | ${(state.evmMarketAdapters || []).filter((item) => item.status !== "mapped").length} research</div>
+        </div>
+        <div class="card">
           <div class="eyebrow">Polygon executor</div>
           <h3>${polygonDeployment ? "deployed" : "not deployed"}</h3>
           <div class="muted mono">${polygonDeployment ? shortEvmAddress(polygonDeployment.contractAddress) : "No contract recorded yet."}</div>
@@ -2143,6 +2155,7 @@
             <h3>${planCard.symbol} on ${planCard.chainName}</h3>
             <p>Status: <strong>${activeSimulation.entry?.status || defaultScenario.status || "simulated"}</strong> | Confidence: <strong>${simulation.confidenceLabel}</strong> (${pct(simulation.confidencePct || 0)})</p>
             <p>Capital source: <strong>${planCard.capitalSource}</strong> | Provider: <strong>${planCard.flashLoanProvider?.provider || "None"}</strong></p>
+            <p>Private lane: <strong>${planCard.privateRelay?.provider || "Not mapped"}</strong> | Adapter coverage: <strong>${planCard.adapterCoverageReady ? "mapped" : "partial"}</strong></p>
             <p>Default realistic net: <strong class="${Number(defaultScenario.netUsd || 0) >= 0 ? "positive" : "negative"}">${money(defaultScenario.netUsd || 0)}</strong></p>
             ${liveValidation}
             <div class="stack">${scenarios}</div>
@@ -2154,6 +2167,9 @@
         const warnings = (planCard.warnings || []).length
           ? (planCard.warnings || []).map((item) => `<div class="pill off">${item}</div>`).join("")
           : `<div class="pill">No planner warnings</div>`;
+        const adapterSummary = (planCard.marketAdapters || []).length
+          ? (planCard.marketAdapters || []).map((item) => `${item.role}:${item.dex} (${item.family})`).join(" | ")
+          : "No mapped adapters";
         $("#advancedPlanResult").innerHTML = `
           <div class="card">
             <div class="eyebrow">${planCard.chainName} ${planCard.capitalSource === "flash-loan" ? "flash-loan" : "own-capital"}</div>
@@ -2162,6 +2178,9 @@
             <p>Required: <strong>${money(planCard.requiredCapitalUsd || 0)}</strong> | Planner net: <strong class="${Number(planCard.projectedNetUsd || 0) >= 0 ? "positive" : "negative"}">${money(planCard.projectedNetUsd || 0)}</strong></p>
             <p>Min required net: <strong>${money(planCard.minRequiredNetUsd || 0)}</strong></p>
             <p>Provider: <strong>${planCard.flashLoanProvider?.provider || "None mapped"}</strong></p>
+            <p>Private lane: <strong>${planCard.privateRelay?.provider || "Not mapped"}</strong> | Submission: <strong>${planCard.privateRelay?.submissionMode || "public-risk"}</strong></p>
+            <p>DEX adapters: <strong>${adapterSummary}</strong></p>
+            <p>Batch reads: <strong>${planCard.batchReadReady ? "available" : "partial"}</strong> | Adapter coverage: <strong>${planCard.adapterCoverageReady ? "ready" : "partial"}</strong></p>
             <div class="stack">${steps || "<div>No execution steps generated.</div>"}</div>
             <div class="stack" style="margin-top:12px;">${warnings}</div>
           </div>
@@ -2183,15 +2202,37 @@
       `).join("") : `<tr><td colspan="7">No advanced routes ranked yet.</td></tr>`;
 
       const providerItems = (state.flashLoanProviders || []).filter(Boolean);
-      $("#providerCards").innerHTML = providerItems.length ? providerItems.map((item) => `
+      const privateLaneItems = (state.evmPrivateLanes || []).filter(Boolean);
+      const adapterItems = (state.evmMarketAdapters || []).filter(Boolean);
+      const infrastructureCards = []
+        .concat(providerItems.map((item) => `
         <div class="card">
-          <div class="eyebrow">${item.chainName || "Unknown chain"}</div>
+          <div class="eyebrow">${item.chainName || "Unknown chain"} | flash liquidity</div>
           <h3>${item.provider || "Unknown provider"}</h3>
           <p>Fee <strong>${item.feeBps} bps</strong> | Max <strong>${money(item.maxBorrowUsd || 0)}</strong></p>
           <div class="muted">${item.status || "unknown"} | ${item.settlement || "n/a"}</div>
           <div class="muted">${item.notes || "No notes available."}</div>
         </div>
-      `).join("") : `<div class="card">No flash-loan providers loaded.</div>`;
+      `))
+        .concat(privateLaneItems.map((item) => `
+        <div class="card">
+          <div class="eyebrow">${item.chainName || "Unknown chain"} | private lane</div>
+          <h3>${item.provider || "Unknown lane"}</h3>
+          <p>Mode <strong>${item.submissionMode || "n/a"}</strong> | Privacy <strong>${item.privacy || "n/a"}</strong></p>
+          <div class="muted">${item.status || "unknown"} | Simulation ${item.simulationSupport ? "supported" : "external/local"}</div>
+          <div class="muted">${item.notes || "No notes available."}</div>
+        </div>
+      `))
+        .concat(adapterItems.slice(0, 8).map((item) => `
+        <div class="card">
+          <div class="eyebrow">${(item.chainIds || []).join(", ") || "EVM"} | adapter</div>
+          <h3>${item.dex || "Unknown dex"}</h3>
+          <p>${item.family || "unknown"} | Quote <strong>${item.quoteMode || "n/a"}</strong></p>
+          <div class="muted">${item.status || "unknown"} | Batch reads ${item.batchReadSupport ? "yes" : "no"} | ${item.routerStyle || "n/a"}</div>
+          <div class="muted">${item.notes || "No notes available."}</div>
+        </div>
+      `));
+      $("#providerCards").innerHTML = infrastructureCards.length ? infrastructureCards.join("") : `<div class="card">No execution infrastructure metadata loaded.</div>`;
 
       const shadowItems = state.shadowExecutions.items || [];
       $("#shadowRows").innerHTML = shadowItems.length ? shadowItems.map((item) => `
@@ -2275,6 +2316,8 @@
           strategies,
           advancedPlanner,
           flashLoanProviders,
+          evmPrivateLanes,
+          evmMarketAdapters,
           shadowExecutions
         ] = await Promise.all([
           api("/api/stats"),
@@ -2292,6 +2335,8 @@
           api("/api/strategies"),
           api("/api/execution/planner?limit=12"),
           api("/api/flash-loans/providers"),
+          api("/api/evm/private-lanes"),
+          api("/api/evm/market-adapters"),
           api("/api/shadow-executions?limit=20")
         ]);
 
@@ -2311,6 +2356,8 @@
         state.advancedPlanner = advancedPlanner || { summary: {}, items: [] };
         state.advancedPlanner.items = (state.advancedPlanner.items || []).filter(Boolean);
         state.flashLoanProviders = (flashLoanProviders.items || []).filter(Boolean);
+        state.evmPrivateLanes = (evmPrivateLanes.items || []).filter(Boolean);
+        state.evmMarketAdapters = (evmMarketAdapters.items || []).filter(Boolean);
         state.shadowExecutions = shadowExecutions || { summary: {}, items: [], pending: [] };
         state.validations = {};
         if (!state.selectedAdvancedOpportunityId && state.advancedPlanner.items?.length) {
