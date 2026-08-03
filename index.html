@@ -578,6 +578,7 @@
                   <th>Execution</th>
                   <th>Validation</th>
                   <th>Strategy</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="oppRows"></tbody>
@@ -887,6 +888,7 @@
       validations: {},
       lastQuote: null,
       builtSwap: null,
+      lastWalletError: null,
       walletPublicKey: null,
       walletLabel: null,
       evmWalletAddress: null,
@@ -959,16 +961,139 @@
     }
 
     function getWalletProvider() {
+      if (window.backpack?.solana?.isBackpack) {
+        return { provider: window.backpack.solana, label: "Backpack" };
+      }
       if (window.phantom?.solana?.isPhantom) {
         return { provider: window.phantom.solana, label: "Phantom" };
       }
       if (window.solana?.isPhantom) {
         return { provider: window.solana, label: "Phantom" };
       }
+      if (window.solana?.isBackpack) {
+        return { provider: window.solana, label: "Backpack" };
+      }
       if (window.solflare?.isSolflare) {
         return { provider: window.solflare, label: "Solflare" };
       }
       return null;
+    }
+
+    function setActiveView(viewName) {
+      document.querySelectorAll(".nav button").forEach((item) => item.classList.remove("active"));
+      document.querySelectorAll(".view").forEach((item) => item.classList.remove("active"));
+      const button = document.querySelector(`.nav button[data-view="${viewName}"]`);
+      if (button) {
+        button.classList.add("active");
+        $("#title").textContent = button.textContent;
+      }
+      const view = $("#" + viewName);
+      if (view) {
+        view.classList.add("active");
+      }
+    }
+
+    function supportedTokenSymbols() {
+      return new Set((state.tokens || []).map((item) => item.symbol));
+    }
+
+    function walletExecutableOpportunity(item) {
+      return Boolean(
+        item &&
+        item.chainId === "solana" &&
+        item.executionSupported &&
+        supportedTokenSymbols().has(item.symbol)
+      );
+    }
+
+    function findOpportunityById(opportunityId) {
+      return state.opportunities.find((item) => item.id === opportunityId) || null;
+    }
+
+    function opportunityActionButtons(item) {
+      if (walletExecutableOpportunity(item)) {
+        return `
+          <div class="actions" style="gap:6px; flex-wrap:wrap;">
+            <button class="btn" data-opp-action="prefill" data-opp-id="${item.id}">Open</button>
+            <button class="btn" data-opp-action="demo" data-opp-id="${item.id}">Demo</button>
+            <button class="btn primary" data-opp-action="execute" data-opp-id="${item.id}">Execute tx</button>
+          </div>
+        `;
+      }
+      if (item.chainId !== "solana") {
+        return `
+          <div class="actions" style="gap:6px; flex-wrap:wrap;">
+            <button class="btn" data-opp-action="planner" data-opp-id="${item.id}">Planner</button>
+            <button class="btn warn" data-opp-action="simulate-advanced" data-opp-id="${item.id}">Simulate</button>
+          </div>
+        `;
+      }
+      return `
+        <div class="actions" style="gap:6px; flex-wrap:wrap;">
+          <button class="btn" data-opp-action="demo" data-opp-id="${item.id}">Demo</button>
+        </div>
+      `;
+    }
+
+    function prefillExecutionForOpportunity(item) {
+      const tokens = supportedTokenSymbols();
+      if (!walletExecutableOpportunity(item)) {
+        throw new Error("This opportunity is not wired for direct wallet execution yet.");
+      }
+      const inputToken = tokens.has("USDC") ? "USDC" : "SOL";
+      $("#inputToken").value = inputToken;
+      $("#outputToken").value = item.symbol;
+      $("#tradeAmount").value = String(
+        Math.min(
+          Number(state.executionStatus?.defaults?.maxExecutionUsd || 250),
+          Number(item.capital || 250),
+          250
+        )
+      );
+      $("#slippageBps").value = String(state.executionStatus?.defaults?.slippageBps || 50);
+      state.lastQuote = null;
+      state.builtSwap = null;
+      state.lastWalletError = null;
+      renderQuote(null, `Execution prefilled from ${item.symbol} on ${item.buyDex} -> ${item.sellDex}. This sends the current wallet swap path, not a full atomic arbitrage bundle yet.`);
+      renderExecutionStatus();
+    }
+
+    async function demoOpportunity(item) {
+      const payload = await api("/api/opportunities/demo-execute", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          opportunityId: item.id,
+          usd: Math.min(Number(item.capital || 250), 250),
+          slippageBps: Number($("#slippageBps")?.value || 50)
+        })
+      });
+      setActiveView("execution");
+      renderQuote(null, `Demo execution recorded for ${item.symbol}. Review the execution log and trade ledger below.`);
+      await loadAll();
+      return payload;
+    }
+
+    async function executeOpportunityTransaction(item) {
+      setActiveView("execution");
+      prefillExecutionForOpportunity(item);
+      await connectWallet();
+      await buildWalletTransaction();
+      await sendWithWallet();
+    }
+
+    async function openOpportunityPlanner(item) {
+      setActiveView("advanced");
+      if (!state.advancedPlanner.items?.length) {
+        await loadAdvancedPlanner();
+      }
+      state.selectedAdvancedOpportunityId = item.id;
+      if ($("#advancedOpportunitySelect")) {
+        $("#advancedOpportunitySelect").value = item.id;
+      }
+      state.advancedPlan = null;
+      state.advancedSimulation = null;
+      renderAdvancedView();
     }
 
     function getEvmProvider() {
@@ -1006,8 +1131,8 @@
 
     async function connectWallet() {
       const wallet = getWalletProvider();
-      if (!wallet) {
-        throw new Error("No injected Solana wallet found. Install Phantom or Solflare in this browser.");
+      if (!wallet?.provider?.connect) {
+        throw new Error("No injected Solana wallet found. Install Phantom, Backpack, or Solflare in this browser.");
       }
       const response = await wallet.provider.connect();
       const publicKey = response?.publicKey?.toString?.() || wallet.provider.publicKey?.toString?.();
@@ -1016,6 +1141,7 @@
       }
       state.walletPublicKey = publicKey;
       state.walletLabel = wallet.label;
+      state.lastWalletError = null;
       renderExecutionStatus();
       return wallet.provider;
     }
@@ -1031,6 +1157,7 @@
       state.walletPublicKey = null;
       state.walletLabel = null;
       state.builtSwap = null;
+      state.lastWalletError = null;
       renderExecutionStatus();
     }
 
@@ -1240,8 +1367,9 @@
           <td><span class="pill ${executionLabel(item) === "active" ? "" : executionLabel(item) === "prepared" ? "warn" : "off"}">${executionLabel(item)}</span></td>
           <td><span class="pill ${validationPillClass(validationFor(item), item)}">${validationLabel(validationFor(item), item)}</span></td>
           <td>${item.strategyLabel}</td>
+          <td>${opportunityActionButtons(item)}</td>
         </tr>
-      `).join("") : `<tr><td colspan="13">No matching opportunities.</td></tr>`;
+      `).join("") : `<tr><td colspan="14">No matching opportunities.</td></tr>`;
     }
 
     function renderTransactions() {
@@ -1298,7 +1426,8 @@
         <div class="card">
           <div class="eyebrow">Wallet</div>
           <h3>${walletConnected ? state.walletLabel || "Connected" : "not connected"}</h3>
-          <div class="muted mono">${walletConnected ? state.walletPublicKey : "Use Phantom or Solflare in this browser."}</div>
+          <div class="muted mono">${walletConnected ? state.walletPublicKey : "Use Phantom, Backpack, or Solflare in this browser."}</div>
+          <div class="muted">${state.lastWalletError || "Direct wallet execution is currently Solana-only in this view."}</div>
         </div>
       `;
 
@@ -1806,6 +1935,8 @@
         renderQuote(payload);
         renderExecutionStatus();
       } catch (error) {
+        state.lastWalletError = error.message || String(error);
+        renderExecutionStatus();
         renderQuote(null, error.message || String(error));
       }
     }
@@ -1813,7 +1944,7 @@
     async function sendWithWallet() {
       try {
         const wallet = getWalletProvider();
-        if (!wallet) {
+        if (!wallet?.provider?.signAndSendTransaction) {
           throw new Error("No compatible Solana wallet found in this browser.");
         }
         if (!state.walletPublicKey) {
@@ -1886,6 +2017,8 @@
         renderExecutions();
         renderOverviewExecutions();
       } catch (error) {
+        state.lastWalletError = error.message || String(error);
+        renderExecutionStatus();
         renderQuote(null, error.message || String(error));
       }
     }
@@ -2034,11 +2167,7 @@
       if (!button) {
         return;
       }
-      document.querySelectorAll(".nav button").forEach((item) => item.classList.remove("active"));
-      document.querySelectorAll(".view").forEach((item) => item.classList.remove("active"));
-      button.classList.add("active");
-      $("#" + button.dataset.view).classList.add("active");
-      $("#title").textContent = button.textContent;
+      setActiveView(button.dataset.view);
     });
 
     $("#refreshBtn").addEventListener("click", loadAll);
@@ -2049,6 +2178,43 @@
     $("#validateBtn").addEventListener("click", loadOpportunityValidations);
     $("#oppSearch").addEventListener("input", renderOpportunities);
     $("#oppChainFilter").addEventListener("change", renderOpportunities);
+    $("#oppRows").addEventListener("click", async (event) => {
+      const button = event.target.closest("button[data-opp-action]");
+      if (!button) {
+        return;
+      }
+      const opportunity = findOpportunityById(button.dataset.oppId);
+      if (!opportunity) {
+        return;
+      }
+      try {
+        if (button.dataset.oppAction === "prefill") {
+          setActiveView("execution");
+          prefillExecutionForOpportunity(opportunity);
+          return;
+        }
+        if (button.dataset.oppAction === "demo") {
+          await demoOpportunity(opportunity);
+          return;
+        }
+        if (button.dataset.oppAction === "execute") {
+          await executeOpportunityTransaction(opportunity);
+          return;
+        }
+        if (button.dataset.oppAction === "planner") {
+          await openOpportunityPlanner(opportunity);
+          return;
+        }
+        if (button.dataset.oppAction === "simulate-advanced") {
+          await openOpportunityPlanner(opportunity);
+          await simulateAdvancedOpportunity();
+        }
+      } catch (error) {
+        state.lastWalletError = error.message || String(error);
+        renderExecutionStatus();
+        renderQuote(null, error.message || String(error));
+      }
+    });
     $("#quoteBtn").addEventListener("click", requestQuote);
     $("#buildWalletBtn").addEventListener("click", buildWalletTransaction);
     $("#sendWalletBtn").addEventListener("click", sendWithWallet);
@@ -2062,6 +2228,8 @@
       try {
         await connectWallet();
       } catch (error) {
+        state.lastWalletError = error.message || String(error);
+        renderExecutionStatus();
         renderQuote(null, error.message || String(error));
       }
     });
