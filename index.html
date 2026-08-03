@@ -5,22 +5,33 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0a131b">
   <title>TradeBotHub MEV OS v3.5</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #081018;
-      --bg-2: #0d1720;
-      --panel: rgba(14, 26, 37, 0.92);
-      --panel-2: rgba(11, 21, 31, 0.9);
-      --line: #21384b;
-      --text: #edf5fb;
-      --muted: #8fa5b8;
-      --green: #53f0a3;
-      --green-2: #1fa36c;
-      --red: #ff6f7e;
-      --yellow: #ffcf6b;
-      --blue: #63c8ff;
-      --shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
-      --radius: 18px;
+      --bg: #071018;
+      --bg-2: #0b1721;
+      --bg-3: #101f2c;
+      --panel: rgba(10, 21, 31, 0.84);
+      --panel-2: rgba(15, 28, 40, 0.9);
+      --line: rgba(154, 190, 214, 0.14);
+      --line-strong: rgba(154, 190, 214, 0.24);
+      --text: #edf7ff;
+      --muted: #8faabd;
+      --muted-2: #6e879b;
+      --green: #62f4b5;
+      --green-2: #1ab27b;
+      --red: #ff7188;
+      --yellow: #ffd37a;
+      --blue: #6fd0ff;
+      --blue-2: #3d8eff;
+      --cyan: #6df0ff;
+      --ink: #041019;
+      --shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
+      --shadow-soft: 0 16px 30px rgba(0, 0, 0, 0.18);
+      --radius: 22px;
+      --radius-sm: 16px;
     }
 
     * {
@@ -31,15 +42,17 @@
       margin: 0;
       color: var(--text);
       background:
-        radial-gradient(circle at top left, rgba(83, 240, 163, 0.12), transparent 28%),
-        radial-gradient(circle at top right, rgba(99, 200, 255, 0.14), transparent 24%),
-        linear-gradient(180deg, #09121a, #061018 65%, #040b11);
-      font: 14px/1.45 "IBM Plex Sans", "Segoe UI", sans-serif;
+        radial-gradient(circle at top left, rgba(98, 244, 181, 0.14), transparent 28%),
+        radial-gradient(circle at 100% 0%, rgba(61, 142, 255, 0.18), transparent 32%),
+        radial-gradient(circle at 50% 100%, rgba(109, 240, 255, 0.08), transparent 28%),
+        linear-gradient(180deg, #071018, #06111a 50%, #040b10);
+      font: 14px/1.55 "Space Grotesk", sans-serif;
+      letter-spacing: 0.01em;
     }
 
     .app {
       display: grid;
-      grid-template-columns: 260px 1fr;
+      grid-template-columns: 282px 1fr;
       min-height: 100vh;
     }
 
@@ -47,57 +60,67 @@
       position: sticky;
       top: 0;
       height: 100vh;
-      padding: 24px 18px;
-      border-right: 1px solid rgba(255, 255, 255, 0.04);
-      background: linear-gradient(180deg, rgba(7, 15, 22, 0.98), rgba(7, 13, 19, 0.92));
-      backdrop-filter: blur(20px);
+      padding: 26px 20px;
+      border-right: 1px solid rgba(255, 255, 255, 0.05);
+      background:
+        linear-gradient(180deg, rgba(6, 16, 24, 0.98), rgba(6, 14, 22, 0.94)),
+        radial-gradient(circle at top left, rgba(98, 244, 181, 0.08), transparent 28%);
+      backdrop-filter: blur(24px);
     }
 
     .brand {
-      margin-bottom: 28px;
-      font: 700 21px/1.1 "IBM Plex Mono", monospace;
-      letter-spacing: 0.04em;
+      margin-bottom: 30px;
+      padding: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.015));
+      box-shadow: var(--shadow-soft);
+      font: 700 24px/1 "Space Grotesk", sans-serif;
+      letter-spacing: 0.05em;
     }
 
     .brand small {
       display: block;
-      margin-top: 8px;
+      margin-top: 10px;
       color: var(--green);
-      font-size: 11px;
-      letter-spacing: 0.2em;
+      font: 700 11px/1 "JetBrains Mono", monospace;
+      letter-spacing: 0.24em;
     }
 
     .nav {
       display: grid;
-      gap: 6px;
+      gap: 8px;
     }
 
     .nav button {
       padding: 12px 14px;
       color: var(--muted);
-      border: 1px solid transparent;
-      border-radius: 12px;
-      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.02);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.01);
       text-align: left;
       cursor: pointer;
-      transition: 140ms ease;
+      transition: 180ms ease;
       font: inherit;
     }
 
     .nav button.active,
     .nav button:hover {
       color: var(--text);
-      background: rgba(99, 200, 255, 0.08);
-      border-color: rgba(99, 200, 255, 0.18);
+      background:
+        linear-gradient(135deg, rgba(61, 142, 255, 0.18), rgba(98, 244, 181, 0.1)),
+        rgba(255, 255, 255, 0.03);
+      border-color: rgba(111, 208, 255, 0.2);
+      transform: translateX(2px);
     }
 
     .sidebar-card {
-      margin-top: 22px;
-      padding: 14px;
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 16px;
-      background: rgba(255, 255, 255, 0.03);
-      box-shadow: var(--shadow);
+      margin-top: 18px;
+      padding: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01));
+      box-shadow: var(--shadow-soft);
     }
 
     .status-dot {
@@ -126,30 +149,94 @@
     }
 
     .topbar {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
+      display: grid;
+      grid-template-columns: minmax(0, 1.65fr) minmax(300px, 0.95fr);
       gap: 18px;
-      margin-bottom: 20px;
+      margin-bottom: 22px;
+      padding: 22px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 28px;
+      background:
+        linear-gradient(180deg, rgba(11, 24, 35, 0.94), rgba(9, 19, 28, 0.92)),
+        radial-gradient(circle at top right, rgba(61, 142, 255, 0.18), transparent 28%);
+      box-shadow: var(--shadow);
     }
 
     .eyebrow {
       color: var(--blue);
-      font: 700 11px/1 "IBM Plex Mono", monospace;
-      letter-spacing: 0.18em;
+      font: 700 11px/1 "JetBrains Mono", monospace;
+      letter-spacing: 0.16em;
       text-transform: uppercase;
     }
 
     h1 {
-      margin: 6px 0 0;
-      font-size: 30px;
+      margin: 6px 0 10px;
+      font-size: 38px;
+      line-height: 0.98;
+      letter-spacing: -0.04em;
+    }
+
+    h2 {
+      font-size: 24px;
       line-height: 1.05;
+      letter-spacing: -0.03em;
+    }
+
+    h3 {
+      font-size: 18px;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+    }
+
+    .hero-copy p {
+      max-width: 70ch;
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .hero-rail {
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .hero-signal {
+      padding: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02));
+    }
+
+    .hero-signal h3 {
+      margin: 0 0 8px;
+      font-size: 28px;
+    }
+
+    .hero-mini-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .hero-mini-card {
+      padding: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.025);
+    }
+
+    .hero-mini-card strong {
+      display: block;
+      margin-top: 8px;
+      font-size: 20px;
     }
 
     .top-actions {
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
+      margin-top: 14px;
     }
 
     .btn,
@@ -160,24 +247,26 @@
     }
 
     .btn {
-      padding: 11px 14px;
-      border-radius: 12px;
+      padding: 11px 15px;
+      border-radius: 14px;
       border: 1px solid rgba(255, 255, 255, 0.08);
       color: var(--text);
-      background: rgba(255, 255, 255, 0.04);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02));
       cursor: pointer;
-      transition: 140ms ease;
+      transition: 180ms ease;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
 
     .btn:hover {
       transform: translateY(-1px);
-      border-color: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.18);
+      box-shadow: 0 12px 22px rgba(0, 0, 0, 0.18);
     }
 
     .btn.primary {
       color: #03140d;
       font-weight: 700;
-      background: linear-gradient(135deg, var(--green), #8bf8c4);
+      background: linear-gradient(135deg, var(--green), #9ef8d3);
       border-color: transparent;
     }
 
@@ -196,9 +285,9 @@
 
     .metrics {
       display: grid;
-      grid-template-columns: repeat(6, minmax(120px, 1fr));
-      gap: 12px;
-      margin-bottom: 14px;
+      grid-template-columns: repeat(4, minmax(140px, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
     }
 
     .metric,
@@ -206,12 +295,25 @@
     .card {
       border: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: var(--radius);
-      background: linear-gradient(180deg, rgba(17, 29, 41, 0.95), rgba(9, 18, 26, 0.9));
+      background:
+        linear-gradient(180deg, rgba(14, 26, 38, 0.96), rgba(8, 17, 25, 0.92)),
+        radial-gradient(circle at top right, rgba(111, 208, 255, 0.08), transparent 28%);
       box-shadow: var(--shadow);
     }
 
     .metric {
-      padding: 15px;
+      position: relative;
+      overflow: hidden;
+      padding: 18px;
+    }
+
+    .metric::after {
+      content: "";
+      position: absolute;
+      inset: auto 18px 0 18px;
+      height: 2px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(111, 208, 255, 0), rgba(111, 208, 255, 0.8), rgba(98, 244, 181, 0.9), rgba(98, 244, 181, 0));
     }
 
     .metric small,
@@ -223,8 +325,10 @@
 
     .metric strong {
       display: block;
-      margin-top: 9px;
-      font-size: 24px;
+      margin-top: 10px;
+      font-size: 28px;
+      line-height: 1;
+      letter-spacing: -0.04em;
     }
 
     .layout {
@@ -237,28 +341,32 @@
     }
 
     .panel {
-      padding: 18px;
+      padding: 20px;
       overflow: hidden;
     }
 
     .panel h2,
     .panel h3,
     .card h3 {
-      margin: 6px 0 12px;
+      margin: 8px 0 12px;
     }
 
     .cards {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
+      gap: 14px;
     }
 
     .card {
-      padding: 15px;
+      padding: 16px;
+      border-radius: 20px;
     }
 
     .table-wrap {
       overflow: auto;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 18px;
+      background: rgba(4, 11, 16, 0.22);
     }
 
     table {
@@ -267,11 +375,15 @@
       white-space: nowrap;
     }
 
+    tr:hover td {
+      background: rgba(111, 208, 255, 0.025);
+    }
+
     th,
     td {
       padding: 12px 10px;
       text-align: left;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     }
 
     th {
@@ -292,8 +404,9 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 4px 9px;
+      padding: 5px 10px;
       border-radius: 999px;
+      border: 1px solid rgba(98, 244, 181, 0.12);
       background: rgba(83, 240, 163, 0.12);
       color: var(--green);
       font-size: 12px;
@@ -310,12 +423,12 @@
     }
 
     .notice {
-      margin-bottom: 14px;
-      padding: 13px 14px;
-      border: 1px solid rgba(255, 207, 107, 0.25);
-      border-radius: 14px;
+      margin-bottom: 16px;
+      padding: 14px 16px;
+      border: 1px solid rgba(255, 207, 107, 0.22);
+      border-radius: 18px;
       color: #ffe7b1;
-      background: rgba(84, 61, 14, 0.25);
+      background: linear-gradient(180deg, rgba(84, 61, 14, 0.24), rgba(58, 40, 9, 0.18));
     }
 
     .field-grid {
@@ -350,6 +463,13 @@
       margin-top: 14px;
     }
 
+    .toolbar-grid {
+      display: grid;
+      grid-template-columns: minmax(220px, 1.3fr) repeat(3, minmax(120px, auto));
+      gap: 12px;
+      align-items: end;
+    }
+
     .view {
       display: none;
     }
@@ -378,11 +498,15 @@
     }
 
     .mono {
-      font-family: "IBM Plex Mono", monospace;
+      font-family: "JetBrains Mono", monospace;
     }
 
     .bar {
       margin-bottom: 12px;
+      padding: 12px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.02);
     }
 
     .bar-head {
@@ -393,9 +517,9 @@
     }
 
     .bar-track {
-      height: 8px;
+      height: 9px;
       border-radius: 999px;
-      background: rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.05);
       overflow: hidden;
     }
 
@@ -405,18 +529,147 @@
       border-radius: inherit;
     }
 
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .section-head p {
+      margin: 0;
+      color: var(--muted);
+      max-width: 60ch;
+    }
+
+    .spotlight-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .spotlight-card,
+    .opportunity-card {
+      position: relative;
+      overflow: hidden;
+      padding: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 22px;
+      background:
+        linear-gradient(180deg, rgba(17, 31, 44, 0.96), rgba(9, 18, 28, 0.92)),
+        radial-gradient(circle at top right, rgba(98, 244, 181, 0.1), transparent 28%);
+      box-shadow: var(--shadow);
+    }
+
+    .spotlight-card::before,
+    .opportunity-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(111, 208, 255, 0.06), transparent 35%, rgba(98, 244, 181, 0.04));
+      pointer-events: none;
+    }
+
+    .spotlight-card > *,
+    .opportunity-card > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .spotlight-top,
+    .opportunity-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .spotlight-card h3,
+    .opportunity-card h3 {
+      margin: 8px 0 4px;
+      font-size: 24px;
+    }
+
+    .spotlight-card p,
+    .opportunity-card p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .spotlight-kpis,
+    .opportunity-kpis {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .mini-stat {
+      padding: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.025);
+    }
+
+    .mini-stat strong {
+      display: block;
+      margin-top: 6px;
+      font-size: 17px;
+    }
+
+    .opportunity-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin: 14px 0 18px;
+    }
+
+    .opportunity-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .opportunity-actions {
+      margin-top: 16px;
+    }
+
+    .large-value {
+      font-size: 30px;
+      line-height: 1;
+      letter-spacing: -0.04em;
+      font-weight: 700;
+    }
+
+    .value-positive {
+      color: var(--green);
+    }
+
+    .value-negative {
+      color: var(--red);
+    }
+
+    .topbar .top-actions {
+      margin-top: 0;
+    }
+
     @media (max-width: 1200px) {
       .metrics {
         grid-template-columns: repeat(3, minmax(120px, 1fr));
       }
 
+      .topbar,
       .two-col,
-      .cards {
+      .cards,
+      .spotlight-grid,
+      .opportunity-grid {
         grid-template-columns: 1fr;
       }
     }
 
-    @media (max-width: 840px) {
+    @media (max-width: 980px) {
       .app {
         grid-template-columns: 1fr;
       }
@@ -428,7 +681,7 @@
       }
 
       .nav {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
       }
 
       main {
@@ -436,24 +689,46 @@
       }
 
       .metrics,
-      .field-grid {
+      .field-grid,
+      .hero-mini-grid {
         grid-template-columns: 1fr 1fr;
       }
 
       h1 {
-        font-size: 24px;
+        font-size: 30px;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .toolbar-grid {
+        grid-template-columns: 1fr 1fr;
       }
     }
 
     @media (max-width: 560px) {
       .nav,
       .metrics,
-      .field-grid {
+      .field-grid,
+      .hero-mini-grid,
+      .toolbar-grid,
+      .opportunity-grid,
+      .spotlight-kpis,
+      .opportunity-kpis {
         grid-template-columns: 1fr;
       }
 
-      .topbar {
-        flex-direction: column;
+      .topbar,
+      .section-head {
+        display: block;
+      }
+
+      .spotlight-card h3,
+      .opportunity-card h3 {
+        font-size: 21px;
+      }
+
+      .large-value {
+        font-size: 26px;
       }
     }
   </style>
@@ -491,14 +766,32 @@
 
     <main>
       <div class="topbar">
-        <div>
+        <div class="hero-copy">
           <div class="eyebrow">Multi-chain market intelligence and guarded execution</div>
           <h1 id="title">Command Center</h1>
+          <p id="heroNarrative">Loading elite operating summary...</p>
+          <div class="top-actions">
+            <button class="btn" id="refreshBtn">Refresh</button>
+            <button class="btn warn" id="modeBadge">Paper only</button>
+          </div>
         </div>
 
-        <div class="top-actions">
-          <button class="btn" id="refreshBtn">Refresh</button>
-          <button class="btn warn" id="modeBadge">Paper only</button>
+        <div class="hero-rail">
+          <div class="hero-signal" id="heroSignal">
+            <div class="eyebrow">System pulse</div>
+            <h3>Connecting</h3>
+            <div class="muted">Waiting for backend telemetry...</div>
+          </div>
+          <div class="hero-mini-grid" id="heroMiniGrid">
+            <div class="hero-mini-card">
+              <small class="muted">Signal</small>
+              <strong>...</strong>
+            </div>
+            <div class="hero-mini-card">
+              <small class="muted">Execution</small>
+              <strong>...</strong>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -509,10 +802,26 @@
 
         <div class="metrics" id="metrics"></div>
 
+        <div class="panel" style="margin-bottom:14px;">
+          <div class="section-head">
+            <div>
+              <div class="eyebrow">Alpha board</div>
+              <h2>Top live routes worth operator attention</h2>
+            </div>
+            <p>High-signal opportunities are surfaced here as premium cards before you dive into the full execution tables.</p>
+          </div>
+          <div class="spotlight-grid" id="overviewSpotlight"></div>
+        </div>
+
         <div class="layout two-col">
           <div class="panel">
-            <div class="eyebrow">Live opportunities</div>
-            <h2>Cross-DEX scanner</h2>
+            <div class="section-head">
+              <div>
+                <div class="eyebrow">Live opportunities</div>
+                <h2>Cross-DEX scanner</h2>
+              </div>
+              <p>Fast table view for operators who want route, spread, quality, validation and status in one glance.</p>
+            </div>
             <div class="table-wrap">
               <table>
                 <thead>
@@ -534,22 +843,37 @@
           </div>
 
           <div class="panel">
-            <div class="eyebrow">Execution readiness</div>
-            <h2>Signer and broadcast state</h2>
+            <div class="section-head">
+              <div>
+                <div class="eyebrow">Execution readiness</div>
+                <h2>Signer and broadcast state</h2>
+              </div>
+              <p>Read this block before trusting any modeled PnL. It tells you whether the machine is actually able to settle.</p>
+            </div>
             <div class="stack" id="readinessCards"></div>
           </div>
         </div>
 
         <div class="layout two-col" style="margin-top:14px;">
           <div class="panel">
-            <div class="eyebrow">Liquidity watch</div>
-            <h2>Tracked DEX depth</h2>
+            <div class="section-head">
+              <div>
+                <div class="eyebrow">Liquidity watch</div>
+                <h2>Tracked DEX depth</h2>
+              </div>
+              <p>Depth concentration highlights where the platform has the best chance to convert scanner edge into executable volume.</p>
+            </div>
             <div id="dexBars"></div>
           </div>
 
           <div class="panel">
-            <div class="eyebrow">Recent executions</div>
-            <h2>Last broadcast swaps</h2>
+            <div class="section-head">
+              <div>
+                <div class="eyebrow">Recent executions</div>
+                <h2>Last broadcast swaps</h2>
+              </div>
+              <p>Use this to separate modeled opportunity quality from actual transaction behavior in the live environment.</p>
+            </div>
             <div class="table-wrap">
               <table>
                 <thead>
@@ -605,7 +929,14 @@
 
       <section class="view" id="opportunities">
         <div class="panel">
-          <div class="actions" style="margin-top:0; margin-bottom:14px;">
+          <div class="section-head">
+            <div>
+              <div class="eyebrow">Operator deck</div>
+              <h2>Elite route monitor</h2>
+            </div>
+            <p>Creative card view for scanning, plus the full operator table when you need dense detail.</p>
+          </div>
+          <div class="actions toolbar-grid" style="margin-top:0; margin-bottom:14px;">
             <input id="oppSearch" placeholder="Buscar activo o DEX">
             <select id="oppChainFilter">
               <option value="all">All chains</option>
@@ -616,6 +947,7 @@
           <div class="notice" style="margin-bottom:14px;">
             Multi-chain scanning now ranks opportunities by execution quality and can validate top Solana routes with live quotes. Validation means route feasibility, not guaranteed realized profit.
           </div>
+          <div class="opportunity-grid" id="opportunityCards"></div>
           <div class="table-wrap">
             <table>
               <thead>
@@ -1008,6 +1340,57 @@
       return executor.status || "discovery";
     }
 
+    function numericToneClass(value) {
+      return Number(value || 0) >= 0 ? "value-positive" : "value-negative";
+    }
+
+    function filteredOpportunities() {
+      const searchValue = ($("#oppSearch")?.value || "").toLowerCase();
+      const chainFilter = $("#oppChainFilter")?.value || "all";
+      return state.opportunities.filter((item) => {
+        const matchesSearch = JSON.stringify(item).toLowerCase().includes(searchValue);
+        const matchesChain = chainFilter === "all" || item.chainId === chainFilter;
+        return matchesSearch && matchesChain;
+      });
+    }
+
+    function renderHeroDeck() {
+      const assessment = operatingAssessment();
+      const topOpportunity = state.opportunities[0] || null;
+      const bestNet = Number(topOpportunity?.net || 0);
+      const liveExecutors = (state.capabilities || []).filter((item) => item.executeSupport && item.liveReady).length;
+      const status = state.executionStatus || {};
+      const modeLabel = state.stats.mode || "paper";
+      const heroState = status.canExecuteLive
+        ? "Guarded live lane available"
+        : "Elite scanner, guarded execution";
+
+      $("#heroNarrative").textContent = assessment.summary;
+      $("#heroSignal").innerHTML = `
+        <div class="eyebrow">System pulse</div>
+        <h3>${heroState}</h3>
+        <div class="muted">Mode ${modeLabel} | ${assessment.blockers[0] || "No immediate blocker reported."}</div>
+      `;
+      $("#heroMiniGrid").innerHTML = `
+        <div class="hero-mini-card">
+          <small class="muted">Best live route</small>
+          <strong class="${numericToneClass(bestNet)}">${topOpportunity ? money(bestNet) : "-"}</strong>
+        </div>
+        <div class="hero-mini-card">
+          <small class="muted">A/B quality</small>
+          <strong>${state.stats.highQualityOpportunityCount || 0}</strong>
+        </div>
+        <div class="hero-mini-card">
+          <small class="muted">Ready routes</small>
+          <strong>${state.stats.readyOpportunityCount || 0}</strong>
+        </div>
+        <div class="hero-mini-card">
+          <small class="muted">Live executors</small>
+          <strong>${liveExecutors}</strong>
+        </div>
+      `;
+    }
+
     async function api(path, options) {
       const response = await fetch(API + path, options);
       const payload = await response.json().catch(() => ({}));
@@ -1304,24 +1687,54 @@
 
     function renderMetrics() {
       const items = [
-        ["Markets", state.stats.marketCount || 0],
-        ["Opportunities", state.stats.opportunityCount || 0],
-        ["Chains", state.stats.chainCount || 0],
-        ["Scanner assets", state.stats.scannerAssetCount || 0],
-        ["A/B quality", state.stats.highQualityOpportunityCount || 0],
-        ["Ready routes", state.stats.readyOpportunityCount || 0],
-        ["Plan ready", state.stats.planReadyCount || 0],
-        ["Flash candidates", state.stats.flashLoanCandidateCount || 0],
-        ["Est. Net", money(state.stats.estimatedNetUsd || 0)],
-        ["Realized", money(state.stats.realizedNetUsd || 0)],
-        ["Daily loss", money(state.stats.dailyLossUsd || 0)]
+        ["Live opportunities", state.stats.opportunityCount || 0, "Cross-chain routes in the current scanner window"],
+        ["Scanner markets", state.stats.marketCount || 0, "Tracked venues feeding the intelligence layer"],
+        ["Ready routes", state.stats.readyOpportunityCount || 0, "Opportunities aligned with an execution path"],
+        ["A/B quality", state.stats.highQualityOpportunityCount || 0, "Best ranked setups right now"],
+        ["Est. net", money(state.stats.estimatedNetUsd || 0), "Modeled upside across the current board"],
+        ["Realized", money(state.stats.realizedNetUsd || 0), "What has actually been captured so far"],
+        ["Shadow accuracy", pct(state.stats.shadowAccuracyPct || 0), "How close simulation is to observed reality"],
+        ["Live executors", state.stats.liveExecutorCount || 0, "Chains with live-ready execution coverage"]
       ];
-      $("#metrics").innerHTML = items.map(([label, value]) => `
+      $("#metrics").innerHTML = items.map(([label, value, detail]) => `
         <div class="metric">
           <small>${label}</small>
           <strong>${value}</strong>
+          <div class="muted" style="margin-top:8px;">${detail}</div>
         </div>
       `).join("");
+    }
+
+    function renderOverviewSpotlight() {
+      const items = state.opportunities.slice(0, 4);
+      $("#overviewSpotlight").innerHTML = items.length ? items.map((item) => `
+        <div class="spotlight-card">
+          <div class="spotlight-top">
+            <div>
+              <div class="eyebrow">${chainName(item)} | ${item.strategyLabel || "scanner route"}</div>
+              <h3>${item.symbol}</h3>
+              <p>${item.buyDex} -> ${item.sellDex}</p>
+            </div>
+            <span class="pill ${qualityPillClass(item)}">${item.qualityTier} ${item.qualityScore}</span>
+          </div>
+          <div class="large-value ${numericToneClass(item.net)}" style="margin-top:18px;">${money(item.net)}</div>
+          <p style="margin-top:8px;">Modeled net after costs with spread <strong>${item.spreadBps} bps</strong>.</p>
+          <div class="spotlight-kpis">
+            <div class="mini-stat">
+              <small class="muted">Gross</small>
+              <strong>${money(item.gross)}</strong>
+            </div>
+            <div class="mini-stat">
+              <small class="muted">Costs</small>
+              <strong>${money(item.costs)}</strong>
+            </div>
+            <div class="mini-stat">
+              <small class="muted">Execution</small>
+              <strong>${executionLabel(item)}</strong>
+            </div>
+          </div>
+        </div>
+      `).join("") : `<div class="card">No spotlight opportunities yet.</div>`;
     }
 
     function renderOverviewOpps() {
@@ -1747,13 +2160,41 @@
     }
 
     function renderOpportunities() {
-      const q = ($("#oppSearch").value || "").toLowerCase();
-      const chainFilter = $("#oppChainFilter").value || "all";
-      const rows = state.opportunities.filter((item) => {
-        const matchesSearch = JSON.stringify(item).toLowerCase().includes(q);
-        const matchesChain = chainFilter === "all" || item.chainId === chainFilter;
-        return matchesSearch && matchesChain;
-      });
+      const rows = filteredOpportunities();
+      $("#opportunityCards").innerHTML = rows.slice(0, 8).length ? rows.slice(0, 8).map((item) => `
+        <div class="opportunity-card">
+          <div class="opportunity-head">
+            <div>
+              <div class="eyebrow">${chainName(item)} | ${item.strategyLabel || "route"}</div>
+              <h3>${item.symbol}</h3>
+              <p>${item.buyDex} -> ${item.sellDex}</p>
+            </div>
+            <span class="pill ${qualityPillClass(item)}">${item.qualityTier} ${item.qualityScore}</span>
+          </div>
+          <div class="opportunity-meta">
+            <span class="pill">${executionLabel(item)}</span>
+            <span class="pill ${validationPillClass(validationFor(item), item)}">${validationLabel(validationFor(item), item)}</span>
+            <span class="pill ${item.status === "watch" ? "warn" : ""}">${item.status}</span>
+          </div>
+          <div class="opportunity-kpis">
+            <div class="mini-stat">
+              <small class="muted">Net</small>
+              <strong class="${numericToneClass(item.net)}">${money(item.net)}</strong>
+            </div>
+            <div class="mini-stat">
+              <small class="muted">Spread</small>
+              <strong>${item.spreadBps} bps</strong>
+            </div>
+            <div class="mini-stat">
+              <small class="muted">Capital</small>
+              <strong>${money(item.capital)}</strong>
+            </div>
+          </div>
+          <div class="opportunity-actions">
+            ${opportunityActionButtons(item)}
+          </div>
+        </div>
+      `).join("") : `<div class="card">No matching opportunities.</div>`;
       $("#oppRows").innerHTML = rows.length ? rows.map((item) => `
         <tr>
           <td>${time(item.detectedAt)}</td>
@@ -2277,8 +2718,10 @@
     }
 
     function renderAll() {
+      renderHeroDeck();
       renderMetrics();
       renderGuide();
+      renderOverviewSpotlight();
       renderOverviewOpps();
       renderDexBars();
       renderReadinessCards();
